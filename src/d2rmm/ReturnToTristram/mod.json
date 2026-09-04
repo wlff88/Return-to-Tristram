@@ -1,7 +1,16 @@
 {
+  "$schema": "../config-schema.json",
   "name": "Return to Tristram",
-  "description": "Return to Tristram D2R overhaul prototype",
+  "description": "Return to Tristram D2R overhaul prototype — reconstructed v0.2.0 vertical slice",
   "author": "Return to Tristram project",
   "version": "0.2.0-reconstructed",
-  "config": []
+  "config": [
+    {
+      "id": "enableDevShortcut",
+      "type": "checkbox",
+      "name": "Enable development Rift Key shortcut",
+      "description": "Town Portal Scroll + Identify Scroll -> Worldstone Rift Key Tier I. Disable before release.",
+      "defaultValue": true
+    }
+  ]
 }
