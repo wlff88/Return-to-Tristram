@@ -1,0 +1,32 @@
+[
+  {
+    "file": "cubemain.txt",
+    "operation": "addRow",
+    "condition": {"parameterKey":"enableReturnToTristram","equals":"true"},
+    "columns": [
+      {"column":"Description","updatedValue":"RTT - Demonic Essence to Rift Key T1"},{"column":"Enabled","updatedValue":"1"},{"column":"Version","updatedValue":"100"},{"column":"MinDiff","updatedValue":"2"},{"column":"NumInputs","updatedValue":"4"},{"column":"Input1","updatedValue":"\"dme,qty=3\""},{"column":"Input2","updatedValue":"tsc"},{"column":"Output","updatedValue":"rk1"},{"column":"Eol","updatedValue":"0"}
+    ]
+  },
+  {
+    "file":"cubemain.txt","operation":"addRow","condition":{"parameterKey":"enableReturnToTristram","equals":"true"},
+    "columns":[
+      {"column":"Description","updatedValue":"RTT - Open Worldstone Rift T1"},{"column":"Enabled","updatedValue":"1"},{"column":"Version","updatedValue":"100"},{"column":"MinDiff","updatedValue":"2"},{"column":"op","updatedValue":"28"},{"column":"NumInputs","updatedValue":"2"},{"column":"Input1","updatedValue":"rk1"},{"column":"Input2","updatedValue":"tsc"},{"column":"Output","updatedValue":"\"Red Portal,lvl=137,qty=1\""},{"column":"Eol","updatedValue":"0"}
+    ]
+  },
+  {
+    "file":"cubemain.txt","operation":"addRow","condition":{"parameterKey":"enableReturnToTristram","equals":"true"},
+    "columns":[
+      {"column":"Description","updatedValue":"RTT - Corrupted Essence to Heart of Tristram"},{"column":"Enabled","updatedValue":"1"},{"column":"Version","updatedValue":"100"},{"column":"MinDiff","updatedValue":"0"},{"column":"NumInputs","updatedValue":"2"},{"column":"Input1","updatedValue":"coe"},{"column":"Input2","updatedValue":"skz"},{"column":"Output","updatedValue":"\"mh1,uni\""},{"column":"Eol","updatedValue":"0"}
+    ]
+  },
+  {
+    "file":"cubemain.txt","operation":"addRow","condition":{"all":[{"parameterKey":"enableReturnToTristram","equals":"true"},{"parameterKey":"enableDevShortcut","equals":"true"}]},
+    "columns":[
+      {"column":"Description","updatedValue":"RTT DEV - Scrolls to Rift Key T1"},{"column":"Enabled","updatedValue":"1"},{"column":"Version","updatedValue":"100"},{"column":"MinDiff","updatedValue":"0"},{"column":"NumInputs","updatedValue":"2"},{"column":"Input1","updatedValue":"tsc"},{"column":"Input2","updatedValue":"isc"},{"column":"Output","updatedValue":"rk1"},{"column":"Eol","updatedValue":"0"}
+    ]
+  },
+  {
+    "file":"levels.txt","rowIdentifier":"Act 5 - Colossal Summit","condition":{"parameterKey":"enableReturnToTristram","equals":"true"},
+    "columns":[{"column":"CMon1","updatedValue":"rtt_riftguardian_t1"},{"column":"Cpct1","updatedValue":"100"},{"column":"Camt1","updatedValue":"1"}]
+  }
+]
