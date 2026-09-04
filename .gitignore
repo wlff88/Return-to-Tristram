@@ -1,0 +1,8 @@
+config.local.json
+vendor/vanilla/data/**
+!vendor/vanilla/data/.gitkeep
+dist/**
+!dist/.gitkeep
+*.log
+__pycache__/
+*.pyc
