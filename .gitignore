@@ -1,8 +1,56 @@
-config.local.json
-vendor/vanilla/data/**
-!vendor/vanilla/data/.gitkeep
-dist/**
-!dist/.gitkeep
+# Builds
+/build/
+/out/
+/bin/
+obj/
+CMakeFiles/
+CMakeCache.txt
+cmake-build-*/
+
+# Local proprietary asset sources / caches — NEVER COMMIT
+/assets/blizzard/
+/assets/d2r/
+/local-assets/
+/local-cache/
+/cache/
+.d2r-cache/
+*.casc-cache
+*.asset-cache
+
+# Local configuration
+.env
+.env.*
+!.env.example
+config.local.*
+abyss.local.ini
+
+# IDE / agent local state
+.vs/
+.vscode/
+.idea/
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs / temp
 *.log
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Archives / generated packages
+*.zip
+*.7z
+*.rar
+*.tar
+*.gz
+
+# Python helper tooling
 __pycache__/
 *.pyc
+.venv/
+venv/
