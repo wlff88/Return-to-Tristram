@@ -5,12 +5,12 @@
 - [x] Preserve old D2RMM prototype as `legacy-d2rmm`.
 - [x] Reset `main` around Abyss Resurrected architecture.
 - [x] Add README, agent mission, architecture and asset boundaries.
-- [ ] Audit current upstream Abyss.
+- [x] Audit current upstream Abyss.
 - [ ] ADR 0001: select upstream integration strategy.
 
 ## Phase 1 — Abyss baseline
 
-- [ ] Pin upstream revision.
+- [x] Pin upstream revision.
 - [ ] Reproducible Windows x64 build.
 - [ ] Existing tests passing.
 - [ ] CI using only freely distributable/synthetic data.
@@ -18,18 +18,18 @@
 
 ## Phase 2 — Resurrected provider layer
 
-- [ ] `AssetProvider` contract.
-- [ ] `AssetResolver`.
+- [x] `AssetProvider` contract.
+- [x] `AssetResolver`.
 - [ ] `AssetManifest` and source fingerprinting.
-- [ ] `TestAssetProvider`.
+- [x] `TestAssetProvider`.
 - [ ] local cache abstraction.
-- [ ] provider contract tests.
+- [x] provider contract tests.
 
 ## Phase 3 — D2R local provider POC
 
-- [ ] explicit D2R installation configuration.
-- [ ] safe Windows installation detection.
-- [ ] installed build compatibility record.
+- [x] explicit D2R installation configuration.
+- [x] safe Windows installation detection (standard paths and RTT_D2R_PATH).
+- [x] installed build compatibility record (HD support explicitly unavailable).
 - [ ] resolve one environment set.
 - [ ] resolve Fallen model/material/animations.
 - [ ] no proprietary files in Git/CI/release artifacts.

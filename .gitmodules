@@ -1,0 +1,3 @@
+[submodule "engine/abyss"]
+	path = engine/abyss
+	url = https://github.com/AbyssEngine/AbyssEngine.git

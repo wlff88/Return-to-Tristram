@@ -4,7 +4,35 @@
 
 ## Status
 
-**Research / architecture / bootstrap stage.** This repository was reset on 2026-09-05 from the previous D2RMM prototype. The previous implementation is preserved in the `legacy-d2rmm` branch and Git history.
+**Bootstrap implementation; not a playable game.** Abyss is pinned at
+`885eea067f0d41a4fb75de2e88b3704215859a58` in `engine/abyss`. The C provider
+library, synthetic probe and upstream ring-buffer test compile on Windows x64.
+Read-only D2R installation detection is implemented. HD loading and the combat
+loop are still pending. See [audit](docs/UPSTREAM_AUDIT.md),
+[ADR 0001](docs/adr/0001-abyss-integration-strategy.md), and
+[provider contract](docs/PROVIDER_CONTRACT.md).
+
+The current C upstream implements menu/media/MPQ loading, **not yet world or
+combat simulation**. The older Go OpenDiablo2 implementation is not this engine.
+
+This repository was reset on 2026-09-05 from the previous D2RMM prototype.
+The previous implementation is preserved in `legacy-d2rmm` and Git history.
+
+### Run the bootstrap
+
+With Visual Studio C++ Build Tools, CMake 3.20+ and Python 3.10+ installed:
+
+```powershell
+git submodule update --init --recursive
+./tools/build-windows.ps1
+./build/bootstrap/Release/rtt_probe.exe
+python tools/d2r_install.py --path "C:/Program Files (x86)/Diablo II Resurrected"
+```
+
+The probe resolves original synthetic pixels; it is a console diagnostic,
+not a graphical game. `build-windows.ps1 -FullEngine` additionally prepares
+the pinned vcpkg dependencies and builds the upstream application.
+See [build notes](docs/BUILD.md) for verification status and limitations.
 
 ## Vision
 

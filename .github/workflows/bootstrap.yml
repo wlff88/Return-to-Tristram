@@ -1,0 +1,21 @@
+name: Bootstrap contracts
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  contracts:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: cmake -S . -B build/bootstrap
+      - run: cmake --build build/bootstrap --config Release
+      - run: ctest --test-dir build/bootstrap -C Release --output-on-failure
+      - run: python -m unittest discover -s tests -p "test_*.py"
