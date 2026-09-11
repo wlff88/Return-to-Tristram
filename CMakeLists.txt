@@ -10,7 +10,10 @@ target_include_directories(rtt_runtime PUBLIC src)
 add_library(rtt_assets src/resurrected/assets/assets.c src/resurrected/assets/test_provider.c)
 target_include_directories(rtt_assets PUBLIC src)
 
-foreach(target rtt_runtime rtt_assets)
+add_library(rtt_progression src/rtt/progression/progression.c)
+target_include_directories(rtt_progression PUBLIC src)
+
+foreach(target rtt_runtime rtt_assets rtt_progression)
     if(MSVC)
         target_compile_options(${target} PRIVATE /W4 /WX)
     else()
@@ -19,7 +22,7 @@ foreach(target rtt_runtime rtt_assets)
 endforeach()
 
 add_executable(rtt_probe tools/provider_probe.c)
-target_link_libraries(rtt_probe PRIVATE rtt_assets rtt_runtime)
+target_link_libraries(rtt_probe PRIVATE rtt_assets rtt_runtime rtt_progression)
 
 if(BUILD_TESTING)
     add_executable(asset_contract_test tests/asset_contract_test.c)
