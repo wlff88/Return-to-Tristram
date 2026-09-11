@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <radialGradient id="bg"><stop offset="0" stop-color="#1b1712"/><stop offset="1" stop-color="#070707"/></radialGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <g stroke="#59452b" stroke-width="3" opacity=".8">
+    <path d="M800 450 L640 340 L450 260 M640 340 L470 470 L300 540 M800 450 L960 340 L1150 260 M960 340 L1130 470 L1300 540 M800 450 L800 235 M800 450 L800 680"/>
+  </g>
+  <g font-family="serif" text-anchor="middle">
+    <circle cx="800" cy="450" r="58" fill="#24190f" stroke="#d49a3a" stroke-width="5" filter="url(#glow)"/>
+    <text x="800" y="458" fill="#e9c37d" font-size="22">ORIGIN</text>
+    <g fill="#171717" stroke="#8b6b3f" stroke-width="3">
+      <circle cx="640" cy="340" r="30"/><circle cx="450" cy="260" r="24"/><circle cx="470" cy="470" r="36"/><circle cx="300" cy="540" r="24"/>
+      <circle cx="960" cy="340" r="30"/><circle cx="1150" cy="260" r="24"/><circle cx="1130" cy="470" r="36"/><circle cx="1300" cy="540" r="24"/>
+      <circle cx="800" cy="235" r="42"/><circle cx="800" cy="680" r="50"/>
+    </g>
+    <text x="800" y="160" fill="#d6c19b" font-size="34" letter-spacing="5">RETURN TO TRISTRAM — PASSIVE CONSTELLATION</text>
+    <text x="800" y="755" fill="#d49a3a" font-size="20">KEYSTONE / MASTERY / SPECIALIZATION</text>
+  </g>
+</svg>
