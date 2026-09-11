@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "tree_id": "rtt_core_v1",
+  "starting_archetype": "warrior",
+  "nodes": [
+    {"id":"warrior_start","type":"minor","cost":1,"required_level":1,"effects":[{"stat":"strength","add":5}]},
+    {"id":"martial_training","type":"minor","cost":1,"required_level":2,"effects":[{"stat":"melee_damage_pct","add":8}]},
+    {"id":"unyielding","type":"notable","cost":1,"required_level":4,"effects":[{"stat":"armor_pct","add":20},{"stat":"stun_resist_pct","add":15}]},
+    {"id":"blood_path","type":"minor","cost":1,"required_level":6,"effects":[{"stat":"max_life_pct","add":6}]},
+    {"id":"blood_covenant","type":"keystone","cost":1,"required_level":10,"rule":"blood_covenant"},
+    {"id":"weapon_mastery","type":"mastery","cost":1,"required_level":12,"choices":["blade_discipline","crusher_discipline","polearm_discipline"]},
+    {"id":"ordeal_gate","type":"specialization","cost":0,"required_level":20,"requires_ordeal":"ordeal_01"}
+  ],
+  "edges": [
+    ["warrior_start","martial_training"],
+    ["martial_training","unyielding"],
+    ["unyielding","blood_path"],
+    ["blood_path","blood_covenant"],
+    ["unyielding","weapon_mastery"],
+    ["weapon_mastery","ordeal_gate"]
+  ]
+}
