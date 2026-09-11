@@ -1,3 +1,8 @@
 [submodule "engine/abyss"]
 	path = engine/abyss
 	url = https://github.com/AbyssEngine/AbyssEngine.git
+
+[submodule "engine/devilutionx"]
+	path = engine/devilutionx
+	url = https://github.com/diasurgical/DevilutionX.git
+	branch = master
