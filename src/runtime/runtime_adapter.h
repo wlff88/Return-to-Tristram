@@ -21,7 +21,8 @@ enum RttRuntimeCapability {
     RTT_RUNTIME_CAP_ENTITY_QUERY  = 1u << 1,
     RTT_RUNTIME_CAP_ITEM_GRANT    = 1u << 2,
     RTT_RUNTIME_CAP_QUEST_HOOKS   = 1u << 3,
-    RTT_RUNTIME_CAP_ASSET_MAPPING = 1u << 4
+    RTT_RUNTIME_CAP_ASSET_MAPPING = 1u << 4,
+    RTT_RUNTIME_CAP_GAMEPAD       = 1u << 5
 };
 
 typedef struct RttRuntimeAdapter {
