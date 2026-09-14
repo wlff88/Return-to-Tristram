@@ -7,6 +7,7 @@ on:
       - '.gitmodules'
       - 'scripts/build-windows.ps1'
       - 'scripts/runtime-acceptance.ps1'
+      - 'scripts/package-windows-test.ps1'
       - 'scripts/apply-engine-patches.py'
       - '.github/workflows/windows-build.yml'
   push:
@@ -16,6 +17,7 @@ on:
       - '.gitmodules'
       - 'scripts/build-windows.ps1'
       - 'scripts/runtime-acceptance.ps1'
+      - 'scripts/package-windows-test.ps1'
       - 'scripts/apply-engine-patches.py'
       - '.github/workflows/windows-build.yml'
   workflow_dispatch:
@@ -39,21 +41,23 @@ jobs:
           submodules: recursive
           fetch-depth: 1
 
-      - name: Parse Phase 1 runtime acceptance harness
+      - name: Parse Windows PowerShell harnesses
         shell: pwsh
         run: |
-          $tokens = $null
-          $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile(
-            (Resolve-Path 'scripts/runtime-acceptance.ps1'),
-            [ref]$tokens,
-            [ref]$errors
-          ) | Out-Null
-          if ($errors.Count -ne 0) {
-            $errors | Format-List
-            throw "scripts/runtime-acceptance.ps1 contains PowerShell parse errors."
+          foreach ($path in @('scripts/runtime-acceptance.ps1', 'scripts/package-windows-test.ps1')) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $path),
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -ne 0) {
+              $errors | Format-List
+              throw "$path contains PowerShell parse errors."
+            }
+            Write-Host "$path parses successfully."
           }
-          Write-Host "Phase 1 runtime acceptance harness parses successfully."
 
       - name: Install CMake
         uses: lukka/get-cmake@latest
@@ -85,9 +89,6 @@ jobs:
                 Remove-Item -Recurse -Force $root
               }
 
-              # vcpkg versioning checks out historical port trees. Do not use a
-              # partial clone here: missing Git objects would turn every manifest
-              # configure into another network dependency.
               git clone --no-checkout https://github.com/microsoft/vcpkg.git $root
               if ($LASTEXITCODE -ne 0) { throw "vcpkg clone failed with exit code $LASTEXITCODE" }
 
@@ -140,8 +141,6 @@ jobs:
               git -C $root remote add origin https://github.com/diasurgical/sol2.git
               if ($LASTEXITCODE -ne 0) { throw "sol2 remote setup failed with exit code $LASTEXITCODE" }
 
-              # The DevilutionX sol2 revision is not guaranteed to be reachable
-              # from the fork's default branch. Fetch the exact object explicitly.
               git -C $root fetch --depth=1 origin $commit
               if ($LASTEXITCODE -ne 0) { throw "sol2 fetch failed with exit code $LASTEXITCODE" }
               git -C $root checkout --detach --force FETCH_HEAD
@@ -200,3 +199,23 @@ jobs:
           $exe = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $exe) { throw "Missing devilutionx.exe in expected build output." }
           Get-Item $exe | Select-Object FullName, Length
+
+      - name: Package RTT Windows x64 test build
+        shell: pwsh
+        run: ./scripts/package-windows-test.ps1 -Configuration Release
+
+      - name: Verify packaged test ZIP
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem 'out/windows-test-build/*.zip' | Select-Object -First 1
+          if (-not $zip) { throw 'Missing RTT Windows test ZIP.' }
+          Write-Host "Package: $($zip.FullName)"
+          Write-Host "SHA256: $((Get-FileHash $zip.FullName -Algorithm SHA256).Hash)"
+
+      - name: Upload RTT Windows x64 test build
+        uses: actions/upload-artifact@v4
+        with:
+          name: rtt-windows-x64-test
+          path: out/windows-test-build/*.zip
+          if-no-files-found: error
+          retention-days: 14
