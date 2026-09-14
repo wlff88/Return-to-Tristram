@@ -23,6 +23,9 @@ jobs:
       - name: Verify pinned DevilutionX baseline
         run: python scripts/verify-baseline.py
 
+      - name: Verify RTT engine patches apply cleanly
+        run: python scripts/apply-engine-patches.py --check
+
       - name: Validate RTT source data
         run: python scripts/validate-data.py
 
@@ -40,6 +43,12 @@ jobs:
           grep -q $'^gold\t200$' out/ci-mod/txtdata/classes/warrior/starting_loadout.tsv
           grep -q $'^gold\t200$' out/ci-mod/txtdata/classes/rogue/starting_loadout.tsv
           grep -q $'^gold\t200$' out/ci-mod/txtdata/classes/sorcerer/starting_loadout.tsv
+
+      - name: Validate RTT loot filter runtime files
+        run: |
+          test -f packaging/mod/lua/mods/rtt/qol/loot_filter.lua
+          grep -q 'ShouldShowItemLabel' packaging/mod/lua/mods/rtt/init.lua
+          grep -q 'minNormalEquipmentValue = 200' packaging/mod/lua/mods/rtt/qol/loot_filter.lua
 
       - name: Validate runtime manifest
         run: |
