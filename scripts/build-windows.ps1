@@ -15,6 +15,11 @@ if (-not (Test-Path (Join-Path $SourceDir 'CMakeLists.txt'))) {
     throw 'DevilutionX submodule is missing. Run scripts/bootstrap-devilutionx.ps1 first.'
 }
 
+python (Join-Path $PSScriptRoot 'apply-engine-patches.py')
+if ($LASTEXITCODE -ne 0) {
+    throw 'RTT engine patch application failed.'
+}
+
 $ConfigureArgs = @(
     '-S', $SourceDir,
     '-B', $BuildDir,
