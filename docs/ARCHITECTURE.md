@@ -1,78 +1,38 @@
-# Architecture Notes
+# Architecture
 
-## System boundaries
+## Core principle
 
-The project is split into three conceptual products:
+Return to Tristram is one game built on one engine foundation. Existing Diablo I mods are treated as feature/reference sources, not executables to be mechanically merged.
 
-1. **Abyss Core** — upstream clean-room Diablo II simulation/runtime.
-2. **Abyss Resurrected** — compatibility, asset-provider, cache and modern presentation layer.
-3. **Return to Tristram** — original gameplay/content/endgame module.
-
-The most important boundary is between **simulation** and **presentation**.
+## Layers
 
 ```text
-Simulation state
-  units / maps / skills / missiles / items / quests
-                    |
-                    v
-            Presentation snapshot
-                    |
-        +-----------+-----------+
-        |                       |
-   AssetResolver              Renderer
-        |
- +------+------+ 
- |             |
-D2R           RTT/Test
-provider      provider
+Return to Tristram content & systems
+quests / classes / skills / abyss
+              ↓
+Project data & compatibility layer
+loaders / hooks / feature flags
+              ↓
+DevilutionX engine baseline
+rendering / input / save / net / UI
+              ↓
+User-supplied Diablo game data
 ```
 
-## Asset-provider contract
+## Why not merge source trees directly?
 
-A provider should expose capabilities and resolve logical asset identifiers. It should not leak source-specific paths into gameplay code.
+Long-lived Diablo I mods diverge in player structures, item logic, save formats, network state, dungeon generation and balance assumptions. A literal merge would make upstream updates and debugging expensive.
 
-Minimum responsibilities:
+Features are therefore decomposed into behaviours and reimplemented against a single stable engine model.
 
-- capability query;
-- asset existence query;
-- metadata/manifest lookup;
-- load/open resource handle;
-- source build fingerprint;
-- diagnostics.
+## Compatibility boundaries
 
-The resolver owns provider priority/fallback.
+Changes touching save serialization, network state, deterministic RNG, item IDs, monster IDs, quest-state IDs or dungeon generation require explicit review.
 
-## D2R provider security/distribution boundary
+## Dependency direction
 
-Treat the D2R installation as external user data.
+`Mods/*` may depend on stable project/engine interfaces. The engine should not depend on specific Return to Tristram content unless unavoidable.
 
-- read-only source;
-- no network retrieval;
-- no repository writes;
-- no CI dependency;
-- no protection bypass;
-- local derivative cache is disposable and build-fingerprinted;
-- unsupported versions fail closed with diagnostics.
+## Feature flags
 
-## Data-driven RTT
-
-RTT should move content out of C wherever practical. A future schema should cover:
-
-- items/affixes;
-- skills;
-- monsters;
-- encounter phases;
-- loot tables;
-- recipes;
-- portals/keys;
-- map metadata.
-
-The schema format is intentionally undecided until the upstream Abyss data model is audited.
-
-## Upstream integration rule
-
-Do not choose fork/subtree/submodule by preference alone. ADR 0001 must evaluate maintenance burden, patch visibility, build ergonomics and license preservation against current upstream structure.
-
-## Future renderer
-
-Do not assume the final renderer must reproduce D2R internals. Required outcome is equivalent high-resolution presentation quality, while the simulation remains Abyss-driven. The provider should make it possible to use D2R-local presentation resources when technically and legally appropriate and to fall back to project-owned/test assets.
+Classic+, Resurrected, Abyss and Hardcore are composed from feature sets rather than maintained as separate forks.

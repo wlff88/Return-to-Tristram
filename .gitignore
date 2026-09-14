@@ -1,56 +1,29 @@
-# Builds
-/build/
-/out/
-/bin/
-obj/
+build/
+out/
+dist/
+.cache/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+DIABDAT.MPQ
+HELLFIRE.MPQ
+*.mpq
+Assets/original/*
+!Assets/original/README.md
+*.sv
+*.hsv
+*.log
+logs/
+saves/
+__pycache__/
+*.py[cod]
+.venv/
 CMakeFiles/
 CMakeCache.txt
 cmake-build-*/
-
-# Local proprietary asset sources / caches — NEVER COMMIT
-/assets/blizzard/
-/assets/d2r/
-/local-assets/
-/local-cache/
-/cache/
-.d2r-cache/
-*.casc-cache
-*.asset-cache
-
-# Local configuration
-.env
-.env.*
-!.env.example
-config.local.*
-abyss.local.ini
-
-# IDE / agent local state
-.vs/
-.vscode/
-.idea/
-.claude/settings.local.json
-
-# OS
-.DS_Store
-Thumbs.db
-Desktop.ini
-
-# Logs / temp
-*.log
+compile_commands.json
 *.tmp
 *.bak
-*.swp
-*.swo
-
-# Archives / generated packages
-*.zip
-*.7z
-*.rar
-*.tar
-*.gz
-
-# Python helper tooling
-__pycache__/
-*.pyc
-.venv/
-venv/
