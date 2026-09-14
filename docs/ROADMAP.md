@@ -27,8 +27,9 @@
 
 - [x] Initial feature flag/config file
 - [x] Runtime package skeleton
-- [ ] Map RTT source schemas to pinned DevilutionX TSV schemas
-- [ ] Project data converter
+- [x] Generic sparse-override to DevilutionX TSV exporter
+- [x] First no-op end-to-end table export (`Experience.tsv`)
+- [ ] Expand table map to items, affixes, uniques, monsters, spells and classes
 - [ ] Module hook interfaces
 - [ ] One demonstrator feature per module
 - [ ] Multiplayer compatibility policy for Lua/TSV/MPQ mods
