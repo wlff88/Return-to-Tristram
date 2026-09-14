@@ -14,6 +14,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$EngineAssetsDir = Join-Path $RepoRoot "Engine/devilutionx/assets"
 Set-Location $RepoRoot
 
 function Write-Step([string]$Message) {
@@ -37,6 +38,22 @@ function Read-Pass([string]$Question) {
 
 function New-LaunchArguments([string]$DataPath, [string]$SavesPath, [string]$ConfigPath) {
     return "--data-dir `"$DataPath`" --save-dir `"$SavesPath`" --config-dir `"$ConfigPath`" --diablo -n"
+}
+
+function Install-RttRuntimeMod([string]$TargetSaveDir, [string]$StagedModPath) {
+    # --save-dir sets DevilutionX PrefPath. Active loose mods therefore live in
+    # <save-dir>/mods/<name>, not next to devilutionx.exe.
+    $RuntimeMod = Join-Path $TargetSaveDir "mods/return-to-tristram"
+    New-Item -ItemType Directory -Force -Path (Split-Path $RuntimeMod -Parent) | Out-Null
+    if (Test-Path $RuntimeMod) {
+        Remove-Item -Recurse -Force $RuntimeMod
+    }
+    New-Item -ItemType Directory -Force -Path $RuntimeMod | Out-Null
+
+    # Seed exact pinned engine logic assets, then overlay RTT files.
+    Copy-Item (Join-Path $EngineAssetsDir '*') $RuntimeMod -Recurse -Force
+    Copy-Item (Join-Path $StagedModPath '*') $RuntimeMod -Recurse -Force
+    return $RuntimeMod
 }
 
 $DataDir = (Resolve-Path $DiabloDataPath).Path
@@ -84,22 +101,25 @@ $StagedMod = Join-Path $RepoRoot "out/mods/return-to-tristram"
 Require-Path $StagedMod "Staged RTT mod"
 Require-Path (Join-Path $StagedMod "manifest.ini") "RTT manifest"
 Require-Path (Join-Path $StagedMod "lua/mods/rtt/init.lua") "RTT Lua bootstrap"
+Require-Path (Join-Path $EngineAssetsDir "lua/inspect.lua") "Pinned DevilutionX inspect.lua"
 
 $RuntimeRoot = Join-Path $RepoRoot "out/runtime-acceptance"
 $ConfigDir = Join-Path $RuntimeRoot "config"
 $SaveDir = Join-Path $RuntimeRoot "saves"
 $EvidenceDir = Join-Path $RuntimeRoot "evidence"
-$RuntimeMod = Join-Path $ExeDir "mods/return-to-tristram"
+New-Item -ItemType Directory -Force -Path $ConfigDir, $SaveDir, $EvidenceDir | Out-Null
 
-New-Item -ItemType Directory -Force -Path $ConfigDir, $SaveDir, $EvidenceDir, (Split-Path $RuntimeMod -Parent) | Out-Null
-if (Test-Path $RuntimeMod) {
-    Remove-Item -Recurse -Force $RuntimeMod
+$RuntimeMod = Install-RttRuntimeMod -TargetSaveDir $SaveDir -StagedModPath $StagedMod
+Require-Path (Join-Path $RuntimeMod "manifest.ini") "Active RTT manifest"
+Require-Path (Join-Path $RuntimeMod "lua/inspect.lua") "Active RTT pinned inspect.lua"
+Require-Path (Join-Path $RuntimeMod "lua/mods/rtt/init.lua") "Active RTT Lua bootstrap"
+$WarriorLoadout = Join-Path $RuntimeMod "txtdata/classes/warrior/starting_loadout.tsv"
+Require-Path $WarriorLoadout "Active RTT Warrior starting loadout"
+if (-not (Select-String -Path $WarriorLoadout -Pattern '^gold\t200$' -Quiet)) {
+    throw "Active RTT Warrior starting loadout does not contain gold=200."
 }
-Copy-Item -Recurse -Force $StagedMod $RuntimeMod
 
-# DevilutionX discovers loose mods at mods/<name>/manifest.ini. The mod option key
-# is the loose-mod directory name; use an isolated config so acceptance does not
-# alter the user's normal DevilutionX settings.
+# Use an isolated config so acceptance does not alter normal DevilutionX settings.
 $IniPath = Join-Path $ConfigDir "diablo.ini"
 @"
 [Mods]
@@ -124,10 +144,13 @@ $Result = [ordered]@{
     executablePreflight = $true
     diabdatPresent = $true
     modStaged = $true
+    modInstalledUnderPrefPath = $true
+    starterGoldOverridePresent = $true
     modConfiguredEnabled = $true
     firstSessionExitCode = $null
     rttSaveDetected = $false
     modVisibleAndLoaded = $false
+    starterGoldObserved = $false
     reachedTristram = $false
     reachedCathedralLevel1 = $false
     combatAndRttHooks = $false
@@ -147,7 +170,7 @@ if ($NoLaunch) {
 $LaunchArgs = New-LaunchArguments -DataPath $DataDir -SavesPath $SaveDir -ConfigPath $ConfigDir
 
 Write-Step "Acceptance session 1"
-Write-Host "In this session: confirm RTT is enabled, create a character, reach Tristram, enter Cathedral Level 1, kill at least one monster, verify loot-filter/resistance UI behavior, save, then exit DevilutionX."
+Write-Host "Create a fresh Warrior/Rogue/Sorcerer and confirm 200 starting gold. Then reach Tristram, enter Cathedral Level 1, kill at least one monster, verify loot-filter/resistance UI behavior, save, then exit DevilutionX."
 $Process = Start-Process -FilePath $ExePath -ArgumentList $LaunchArgs -WorkingDirectory $ExeDir -PassThru -Wait
 $Result.firstSessionExitCode = $Process.ExitCode
 
@@ -156,7 +179,8 @@ $RttSaves = Get-ChildItem -Path $SaveDir -Recurse -File -ErrorAction SilentlyCon
 }
 $Result.rttSaveDetected = @($RttSaves).Count -gt 0
 
-$Result.modVisibleAndLoaded = Read-Pass "Was Return to Tristram visible/enabled in the mod settings and loaded for the game?"
+$Result.modVisibleAndLoaded = Read-Pass "Was Return to Tristram visible/enabled and loaded for the game?"
+$Result.starterGoldObserved = Read-Pass "Did a fresh Warrior/Rogue/Sorcerer start with exactly 200 gold?"
 $Result.reachedTristram = Read-Pass "Did the new game reach Tristram normally?"
 $Result.reachedCathedralLevel1 = Read-Pass "Did you enter Cathedral Level 1?"
 $Result.combatAndRttHooks = Read-Pass "Did combat work and did the RTT loot-filter/resistance-display hooks behave correctly?"
@@ -173,6 +197,7 @@ if (Read-Pass "Run the two-client multiplayer baseline now?") {
     $Client2Save = Join-Path $RuntimeRoot "saves-client2"
     New-Item -ItemType Directory -Force -Path $Client2Config, $Client2Save | Out-Null
     Copy-Item -Force $IniPath (Join-Path $Client2Config "diablo.ini")
+    Install-RttRuntimeMod -TargetSaveDir $Client2Save -StagedModPath $StagedMod | Out-Null
 
     $Client2Args = New-LaunchArguments -DataPath $DataDir -SavesPath $Client2Save -ConfigPath $Client2Config
 
@@ -181,7 +206,7 @@ if (Read-Pass "Run the two-client multiplayer baseline now?") {
     Write-Host "Connect the two clients to the same multiplayer game, move both characters, perform basic combat, then close both clients."
     $Client1.WaitForExit()
     $Client2.WaitForExit()
-    $Result.multiplayerBaseline = Read-Pass "Did both clients connect and complete basic movement/combat without an obvious desync or crash?"
+    $Result.multiplayerBaseline = Read-Pass "Did both RTT-enabled clients connect and complete basic movement/combat without an obvious desync or crash?"
 } else {
     $Result.multiplayerBaseline = $false
 }
@@ -190,10 +215,13 @@ $Result.passed = (
     $Result.executablePreflight -and
     $Result.diabdatPresent -and
     $Result.modStaged -and
+    $Result.modInstalledUnderPrefPath -and
+    $Result.starterGoldOverridePresent -and
     $Result.modConfiguredEnabled -and
     ($Result.firstSessionExitCode -eq 0) -and
     $Result.rttSaveDetected -and
     $Result.modVisibleAndLoaded -and
+    $Result.starterGoldObserved -and
     $Result.reachedTristram -and
     $Result.reachedCathedralLevel1 -and
     $Result.combatAndRttHooks -and
