@@ -115,13 +115,22 @@ jobs:
               if (Test-Path $root) {
                 Remove-Item -Recurse -Force $root
               }
-              New-Item -ItemType Directory -Force (Split-Path -Parent $root) | Out-Null
+              New-Item -ItemType Directory -Force $root | Out-Null
 
-              git clone https://github.com/diasurgical/sol2.git $root
-              if ($LASTEXITCODE -ne 0) { throw "sol2 clone failed with exit code $LASTEXITCODE" }
+              git -C $root init
+              if ($LASTEXITCODE -ne 0) { throw "sol2 init failed with exit code $LASTEXITCODE" }
+              git -C $root remote add origin https://github.com/diasurgical/sol2.git
+              if ($LASTEXITCODE -ne 0) { throw "sol2 remote setup failed with exit code $LASTEXITCODE" }
 
-              git -C $root checkout --force $commit
+              # The DevilutionX sol2 revision is not guaranteed to be reachable
+              # from the fork's default branch. Fetch the exact object explicitly.
+              git -C $root fetch --depth=1 origin $commit
+              if ($LASTEXITCODE -ne 0) { throw "sol2 fetch failed with exit code $LASTEXITCODE" }
+              git -C $root checkout --detach --force FETCH_HEAD
               if ($LASTEXITCODE -ne 0) { throw "sol2 checkout failed with exit code $LASTEXITCODE" }
+
+              $current = (git -C $root rev-parse HEAD).Trim()
+              if ($current -ne $commit) { throw "sol2 resolved to $current instead of $commit" }
 
               Write-Host "Pinned sol2 is ready: $commit"
               exit 0
