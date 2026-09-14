@@ -1,0 +1,64 @@
+name: Windows MSVC baseline build
+
+on:
+  pull_request:
+    paths:
+      - 'Engine/**'
+      - '.gitmodules'
+      - 'scripts/build-windows.ps1'
+      - '.github/workflows/windows-build.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'Engine/**'
+      - '.gitmodules'
+      - 'scripts/build-windows.ps1'
+      - '.github/workflows/windows-build.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: windows-msvc-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      VCPKG_FEATURE_FLAGS: dependencygraph
+    steps:
+      - name: Checkout RTT and pinned DevilutionX
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install CMake and Ninja
+        uses: lukka/get-cmake@latest
+
+      - name: Restore or setup vcpkg
+        uses: lukka/run-vcpkg@v11.6
+        with:
+          vcpkgGitCommitId: '40f3c709db80acf154ac4b17a1f83c564ebd022e'
+          vcpkgJsonGlob: '**/Engine/devilutionx/vcpkg.json'
+
+      - name: Install pinned upstream Windows preset
+        shell: pwsh
+        run: Copy-Item Packaging/windows/CMakePresets.json CMakePresets.json -Force
+        working-directory: Engine/devilutionx
+
+      - name: Configure DevilutionX
+        shell: pwsh
+        run: cmake --preset ninja-vcpkg-relwithdebinfo
+        working-directory: Engine/devilutionx
+
+      - name: Build DevilutionX
+        shell: pwsh
+        run: cmake --build --preset ninja-vcpkg-relwithdebinfo --parallel 2
+        working-directory: Engine/devilutionx
+
+      - name: Verify executable
+        shell: pwsh
+        run: |
+          $exe = 'Engine/devilutionx/build-ninja-vcpkg-relwithdebinfo/devilutionx.exe'
+          if (-not (Test-Path $exe)) { throw "Missing build output: $exe" }
+          Get-Item $exe | Select-Object FullName, Length
