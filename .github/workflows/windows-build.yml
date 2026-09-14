@@ -6,6 +6,7 @@ on:
       - 'Engine/**'
       - '.gitmodules'
       - 'scripts/build-windows.ps1'
+      - 'scripts/apply-engine-patches.py'
       - '.github/workflows/windows-build.yml'
   push:
     branches: [ main ]
@@ -13,6 +14,7 @@ on:
       - 'Engine/**'
       - '.gitmodules'
       - 'scripts/build-windows.ps1'
+      - 'scripts/apply-engine-patches.py'
       - '.github/workflows/windows-build.yml'
   workflow_dispatch:
 
@@ -26,6 +28,8 @@ jobs:
     env:
       VCPKG_FEATURE_FLAGS: dependencygraph
       VCPKG_DISABLE_METRICS: 1
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      RTT_SOL2_SOURCE: ${{ github.workspace }}/deps/sol2
     steps:
       - name: Checkout RTT and pinned DevilutionX
         uses: actions/checkout@v7
@@ -36,11 +40,107 @@ jobs:
       - name: Install CMake
         uses: lukka/get-cmake@latest
 
-      - name: Restore or setup vcpkg
-        uses: lukka/run-vcpkg@v11.6
+      - name: Cache pinned vcpkg
+        uses: actions/cache@v4
         with:
-          vcpkgGitCommitId: '40f3c709db80acf154ac4b17a1f83c564ebd022e'
-          vcpkgJsonGlob: '**/Engine/devilutionx/vcpkg.json'
+          path: vcpkg
+          key: vcpkg-${{ runner.os }}-40f3c709db80acf154ac4b17a1f83c564ebd022e
+
+      - name: Setup pinned vcpkg with retry
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $commit = '40f3c709db80acf154ac4b17a1f83c564ebd022e'
+          $root = $env:VCPKG_ROOT
+
+          if ((Test-Path (Join-Path $root 'vcpkg.exe')) -and (Test-Path (Join-Path $root '.git'))) {
+            $current = (git -C $root rev-parse HEAD).Trim()
+            if ($current -eq $commit) {
+              Write-Host "Using cached vcpkg $commit"
+              exit 0
+            }
+          }
+
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            try {
+              if (Test-Path $root) {
+                Remove-Item -Recurse -Force $root
+              }
+
+              # vcpkg versioning checks out historical port trees. Do not use a
+              # partial clone here: missing Git objects would turn every manifest
+              # configure into another network dependency.
+              git clone --no-checkout https://github.com/microsoft/vcpkg.git $root
+              if ($LASTEXITCODE -ne 0) { throw "vcpkg clone failed with exit code $LASTEXITCODE" }
+
+              git -C $root checkout --force $commit
+              if ($LASTEXITCODE -ne 0) { throw "vcpkg checkout failed with exit code $LASTEXITCODE" }
+
+              & (Join-Path $root 'bootstrap-vcpkg.bat') -disableMetrics
+              if ($LASTEXITCODE -ne 0) { throw "vcpkg bootstrap failed with exit code $LASTEXITCODE" }
+
+              Write-Host "Pinned vcpkg is ready: $commit"
+              exit 0
+            }
+            catch {
+              Write-Warning "vcpkg setup attempt $attempt failed: $($_.Exception.Message)"
+              if ($attempt -eq 3) { throw }
+              Start-Sleep -Seconds (5 * $attempt)
+            }
+          }
+
+      - name: Cache pinned sol2
+        uses: actions/cache@v4
+        with:
+          path: deps/sol2
+          key: sol2-${{ runner.os }}-832ac772c2cd3d9620d447e9e77897f7b5e806e3
+
+      - name: Prefetch pinned sol2 with retry
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $commit = '832ac772c2cd3d9620d447e9e77897f7b5e806e3'
+          $root = $env:RTT_SOL2_SOURCE
+
+          if ((Test-Path (Join-Path $root 'CMakeLists.txt')) -and (Test-Path (Join-Path $root '.git'))) {
+            $current = (git -C $root rev-parse HEAD).Trim()
+            if ($current -eq $commit) {
+              Write-Host "Using cached sol2 $commit"
+              exit 0
+            }
+          }
+
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            try {
+              if (Test-Path $root) {
+                Remove-Item -Recurse -Force $root
+              }
+              New-Item -ItemType Directory -Force $root | Out-Null
+
+              git -C $root init
+              if ($LASTEXITCODE -ne 0) { throw "sol2 init failed with exit code $LASTEXITCODE" }
+              git -C $root remote add origin https://github.com/diasurgical/sol2.git
+              if ($LASTEXITCODE -ne 0) { throw "sol2 remote setup failed with exit code $LASTEXITCODE" }
+
+              # The DevilutionX sol2 revision is not guaranteed to be reachable
+              # from the fork's default branch. Fetch the exact object explicitly.
+              git -C $root fetch --depth=1 origin $commit
+              if ($LASTEXITCODE -ne 0) { throw "sol2 fetch failed with exit code $LASTEXITCODE" }
+              git -C $root checkout --detach --force FETCH_HEAD
+              if ($LASTEXITCODE -ne 0) { throw "sol2 checkout failed with exit code $LASTEXITCODE" }
+
+              $current = (git -C $root rev-parse HEAD).Trim()
+              if ($current -ne $commit) { throw "sol2 resolved to $current instead of $commit" }
+
+              Write-Host "Pinned sol2 is ready: $commit"
+              exit 0
+            }
+            catch {
+              Write-Warning "sol2 setup attempt $attempt failed: $($_.Exception.Message)"
+              if ($attempt -eq 3) { throw }
+              Start-Sleep -Seconds (5 * $attempt)
+            }
+          }
 
       - name: Verify pinned engine baseline
         shell: pwsh
@@ -48,7 +148,29 @@ jobs:
 
       - name: Build pinned DevilutionX with Visual Studio MSVC
         shell: pwsh
-        run: ./scripts/build-windows.ps1 -Configuration Release -VcpkgRoot $env:VCPKG_ROOT
+        run: |
+          $lastCode = 1
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            try {
+              & ./scripts/build-windows.ps1 -Configuration Release -VcpkgRoot $env:VCPKG_ROOT -Sol2Source $env:RTT_SOL2_SOURCE
+              $lastCode = $LASTEXITCODE
+            }
+            catch {
+              $lastCode = 1
+              Write-Warning "Build attempt $attempt raised: $($_.Exception.Message)"
+            }
+
+            if ($lastCode -eq 0) {
+              Write-Host "Build succeeded on attempt $attempt"
+              exit 0
+            }
+
+            Write-Warning "Build attempt $attempt failed with exit code $lastCode"
+            if ($attempt -lt 3) {
+              Start-Sleep -Seconds (10 * $attempt)
+            }
+          }
+          exit $lastCode
 
       - name: Verify executable
         shell: pwsh
