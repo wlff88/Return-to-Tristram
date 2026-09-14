@@ -1,0 +1,12 @@
+{
+  "baseline": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+  "tables": [
+    {
+      "name": "experience",
+      "upstream": "assets/txtdata/Experience.tsv",
+      "patch": "Data/overrides/Experience.tsv",
+      "output": "txtdata/Experience.tsv",
+      "key": "Level"
+    }
+  ]
+}

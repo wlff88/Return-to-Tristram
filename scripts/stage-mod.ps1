@@ -11,5 +11,9 @@ if (Test-Path $Target) {
 New-Item -ItemType Directory -Force -Path $Target | Out-Null
 Copy-Item (Join-Path $Source '*') $Target -Recurse -Force
 
+python (Join-Path $PSScriptRoot 'export-mod-data.py') --output $Target
+if ($LASTEXITCODE -ne 0) {
+    throw 'RTT data export failed.'
+}
+
 Write-Host "Staged Return to Tristram mod at: $Target"
-Write-Host 'No Blizzard assets or unreviewed third-party mod code are included.'

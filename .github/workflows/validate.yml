@@ -26,6 +26,15 @@ jobs:
       - name: Validate RTT source data
         run: python scripts/validate-data.py
 
+      - name: Generate runtime tables
+        run: python scripts/export-mod-data.py --output out/ci-mod
+
+      - name: Validate generated Experience table
+        run: |
+          test -f out/ci-mod/txtdata/Experience.tsv
+          grep -q $'^Level\tExperience$' out/ci-mod/txtdata/Experience.tsv
+          grep -q $'^1\t2000$' out/ci-mod/txtdata/Experience.tsv
+
       - name: Validate runtime manifest
         run: |
           test -f packaging/mod/manifest.ini
