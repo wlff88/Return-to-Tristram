@@ -35,6 +35,10 @@ function Read-Pass([string]$Question) {
     }
 }
 
+function New-LaunchArguments([string]$DataPath, [string]$SavesPath, [string]$ConfigPath) {
+    return "--data-dir `"$DataPath`" --save-dir `"$SavesPath`" --config-dir `"$ConfigPath`" --diablo -n"
+}
+
 $DataDir = (Resolve-Path $DiabloDataPath).Path
 $DiabdatCandidates = @(
     (Join-Path $DataDir "DIABDAT.MPQ"),
@@ -140,13 +144,7 @@ if ($NoLaunch) {
     exit 0
 }
 
-$LaunchArgs = @(
-    "--data-dir", $DataDir,
-    "--save-dir", $SaveDir,
-    "--config-dir", $ConfigDir,
-    "--diablo",
-    "-n"
-)
+$LaunchArgs = New-LaunchArguments -DataPath $DataDir -SavesPath $SaveDir -ConfigPath $ConfigDir
 
 Write-Step "Acceptance session 1"
 Write-Host "In this session: confirm RTT is enabled, create a character, reach Tristram, enter Cathedral Level 1, kill at least one monster, verify loot-filter/resistance UI behavior, save, then exit DevilutionX."
@@ -176,13 +174,7 @@ if (Read-Pass "Run the two-client multiplayer baseline now?") {
     New-Item -ItemType Directory -Force -Path $Client2Config, $Client2Save | Out-Null
     Copy-Item -Force $IniPath (Join-Path $Client2Config "diablo.ini")
 
-    $Client2Args = @(
-        "--data-dir", $DataDir,
-        "--save-dir", $Client2Save,
-        "--config-dir", $Client2Config,
-        "--diablo",
-        "-n"
-    )
+    $Client2Args = New-LaunchArguments -DataPath $DataDir -SavesPath $Client2Save -ConfigPath $Client2Config
 
     $Client1 = Start-Process -FilePath $ExePath -ArgumentList $LaunchArgs -WorkingDirectory $ExeDir -PassThru
     $Client2 = Start-Process -FilePath $ExePath -ArgumentList $Client2Args -WorkingDirectory $ExeDir -PassThru
