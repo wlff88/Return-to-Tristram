@@ -64,3 +64,6 @@ jobs:
           manifest_version="$(sed -n 's/^version=//p' packaging/mod/manifest.ini | tr -d '\r\n')"
           test "$manifest_version" = "$version"
           grep -q "Current development version: \`$version\`" docs/VERSIONING.md
+
+      - name: Validate Phase 1 runtime acceptance harness
+        run: python scripts/validate-runtime-harness.py

@@ -17,9 +17,10 @@ Implemented RTT-specific features include:
 - Lua-driven loot-filter hook and default loot filter;
 - immediate exact monster resistance/immunity display;
 - ordered, CI-validated DevilutionX patch application;
-- Windows MSVC compile gate that verifies `devilutionx.exe` is produced.
+- Windows MSVC compile gate that verifies `devilutionx.exe` is produced;
+- repeatable Phase 1 Windows runtime-acceptance harness with isolated saves/config and JSON evidence.
 
-The remaining baseline acceptance work is runtime smoke testing with legally supplied Diablo data: vanilla launch, RTT mod-loader entry, save/load, controller flow and multiplayer baseline.
+The remaining Phase 1 baseline work is one real runtime acceptance pass with legally supplied Diablo data: launch, RTT mod discovery, Tristram/Cathedral combat, save/reload, controller flow and two-client multiplayer baseline.
 
 See `docs/PROJECT_STATUS.md` for the current acceptance state and `docs/ROADMAP.md` for the implementation roadmap.
 
@@ -44,6 +45,14 @@ On Windows:
 ./scripts/build-windows.ps1 -Configuration Release
 ./scripts/stage-mod.ps1
 ```
+
+To execute the canonical Phase 1 runtime acceptance pass against a directory containing a legally obtained `DIABDAT.MPQ`:
+
+```powershell
+./scripts/runtime-acceptance.ps1 -DiabloDataPath "C:\Games\Diablo"
+```
+
+The full procedure and pass criteria are defined in `docs/PHASE1_RUNTIME_ACCEPTANCE.md`.
 
 ## Design pillars
 

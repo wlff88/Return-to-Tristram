@@ -15,7 +15,7 @@ This roadmap reflects the current single-engine Return to Tristram architecture.
 
 **Exit criterion:** repository structure, source policy, project direction and status documentation are internally consistent.
 
-## Phase 1 — DevilutionX baseline — ENGINE COMPLETE / RUNTIME ACCEPTANCE PENDING
+## Phase 1 — DevilutionX baseline — ENGINE/HARNESS COMPLETE / REAL RUNTIME ACCEPTANCE PENDING
 
 - [x] Select exact upstream revision
 - [x] Record upstream licence and commit
@@ -26,6 +26,9 @@ This roadmap reflects the current single-engine Return to Tristram architecture.
 - [x] Add baseline/data validation CI
 - [x] Add Windows MSVC compile CI
 - [x] Verify CI produces `devilutionx.exe`
+- [x] Add repeatable Windows runtime-acceptance harness
+- [x] Add isolated config/save directories and machine-readable acceptance evidence
+- [x] Add CI wiring validation for the acceptance harness
 - [ ] Confirm Windows x64 build on developer workstation
 - [ ] Verify vanilla campaign launch with legally supplied game data
 - [ ] Verify RTT entry in mod loader
@@ -33,7 +36,7 @@ This roadmap reflects the current single-engine Return to Tristram architecture.
 - [ ] Verify controller flow from menu through combat/inventory
 - [ ] Verify two-client multiplayer baseline
 
-**Exit criterion:** one real Windows runtime smoke-test session completes launch -> Tristram -> Cathedral -> combat -> save -> reload, plus a basic multiplayer connection test.
+**Exit criterion:** one real Windows runtime acceptance run records `passed: true` after launch -> Tristram -> Cathedral -> combat -> save -> reload, controller flow and a basic multiplayer connection test.
 
 ## Phase 2 — Mod framework — ACTIVE
 
