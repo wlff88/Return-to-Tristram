@@ -1,7 +1,6 @@
 param(
     [ValidateSet('Debug','Release')]
-    [string]$Configuration = 'Release',
-    [string]$DevilutionXAssetsUrl = 'https://github.com/diasurgical/devilutionx-assets/releases/latest/download/devilutionx.mpq'
+    [string]$Configuration = 'Release'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -9,9 +8,14 @@ Set-StrictMode -Version Latest
 
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $BuildDir = Join-Path $RepoRoot 'build/devilutionx-windows-x64'
+$EngineDir = Join-Path $RepoRoot 'Engine/devilutionx'
+$EngineAssetsDir = Join-Path $EngineDir 'assets'
 $OutRoot = Join-Path $RepoRoot 'out/windows-test-build'
 $Version = (Get-Content (Join-Path $RepoRoot 'VERSION') -Raw).Trim()
-$PackageName = "Return-to-Tristram-$Version-Windows-x64-test"
+$RttCommit = (git -C $RepoRoot rev-parse HEAD).Trim()
+$EngineCommit = (git -C $EngineDir rev-parse HEAD).Trim()
+$ShortCommit = $RttCommit.Substring(0, 8)
+$PackageName = "Return-to-Tristram-$Version-Windows-x64-test-$ShortCommit"
 $PackageDir = Join-Path $OutRoot $PackageName
 $ZipPath = Join-Path $OutRoot "$PackageName.zip"
 
@@ -26,7 +30,12 @@ if ($null -eq $ExePath) {
 $ExePath = (Resolve-Path $ExePath).Path
 $RuntimeSourceDir = Split-Path $ExePath -Parent
 
+if (-not (Test-Path (Join-Path $EngineAssetsDir 'lua/inspect.lua'))) {
+    throw 'Pinned DevilutionX source is missing assets/lua/inspect.lua.'
+}
+
 Write-Host "Packaging runtime from: $RuntimeSourceDir"
+Write-Host "Pinned engine assets from: $EngineAssetsDir"
 
 if (Test-Path $PackageDir) {
     Remove-Item -Recurse -Force $PackageDir
@@ -43,31 +52,70 @@ if (-not (Test-Path (Join-Path $PackageDir 'devilutionx.exe'))) {
     throw 'Packaged runtime is missing devilutionx.exe.'
 }
 
-# Stage the exact RTT runtime package and place it in the loose-mod directory
-# used by the pinned DevilutionX baseline.
+# IMPORTANT: keep engine binary and engine assets on the same pinned revision.
+# The previous test package downloaded the latest public devilutionx.mpq when the
+# source build did not produce one. That can version-skew a development binary
+# from its Lua/TSV assets (for example assets/lua/inspect.lua).
+#
+# Always ship the exact pinned source asset tree as a loose /assets directory.
+# DevilutionX explicitly supports this directory next to the executable as a
+# runtime fallback. If the build also produced devilutionx.mpq, include it too;
+# because it was generated from the same pinned source it is safe to pair with
+# this binary.
+$LooseAssetsDir = Join-Path $PackageDir 'assets'
+New-Item -ItemType Directory -Force -Path $LooseAssetsDir | Out-Null
+Copy-Item (Join-Path $EngineAssetsDir '*') $LooseAssetsDir -Recurse -Force
+
+$RequiredPinnedAssets = @(
+    'lua/inspect.lua',
+    'lua/devilutionx/events.lua',
+    'lua_internal/get_lua_function_signature.lua',
+    'ASSETS_VERSION'
+)
+foreach ($relative in $RequiredPinnedAssets) {
+    $path = Join-Path $LooseAssetsDir $relative
+    if (-not (Test-Path $path)) {
+        throw "Pinned runtime asset missing from package: assets/$relative"
+    }
+}
+
+$AssetsPath = Join-Path $PackageDir 'devilutionx.mpq'
+$ExistingAssets = Get-ChildItem -Path $BuildDir -Filter 'devilutionx.mpq' -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($null -ne $ExistingAssets) {
+    Copy-Item $ExistingAssets.FullName $AssetsPath -Force
+    $AssetsMode = "pinned-loose-assets + build-generated devilutionx.mpq:$($ExistingAssets.FullName)"
+} else {
+    # Deliberately do NOT download releases/latest/devilutionx.mpq here. The
+    # current RTT engine is pinned to a development commit and must use assets
+    # from that exact same commit.
+    $AssetsMode = 'pinned-loose-assets (no external devilutionx.mpq fallback)'
+}
+
+# Stage the exact RTT runtime package. Start with the pinned engine asset tree as
+# a complete loose runtime overlay, then place RTT files on top. This gives the
+# active RTT mod exact-version Lua/TSV data while preserving RTT overrides.
 & (Join-Path $PSScriptRoot 'stage-mod.ps1')
 if ($LASTEXITCODE -ne 0) {
     throw 'RTT mod staging failed.'
 }
 $StagedMod = Join-Path $RepoRoot 'out/mods/return-to-tristram'
 $RuntimeModsDir = Join-Path $PackageDir 'mods'
-New-Item -ItemType Directory -Force -Path $RuntimeModsDir | Out-Null
-Copy-Item $StagedMod (Join-Path $RuntimeModsDir 'return-to-tristram') -Recurse -Force
+$RuntimeRttModDir = Join-Path $RuntimeModsDir 'return-to-tristram'
+New-Item -ItemType Directory -Force -Path $RuntimeRttModDir | Out-Null
+Copy-Item (Join-Path $EngineAssetsDir '*') $RuntimeRttModDir -Recurse -Force
+Copy-Item (Join-Path $StagedMod '*') $RuntimeRttModDir -Recurse -Force
 
-# A source build does not necessarily generate devilutionx.mpq. Use the official
-# DevilutionX asset bundle when it is not already present in the build output.
-$AssetsPath = Join-Path $PackageDir 'devilutionx.mpq'
-$ExistingAssets = Get-ChildItem -Path $BuildDir -Filter 'devilutionx.mpq' -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($null -ne $ExistingAssets) {
-    Copy-Item $ExistingAssets.FullName $AssetsPath -Force
-    $AssetsSource = "build:$($ExistingAssets.FullName)"
-} else {
-    Write-Host "Downloading official DevilutionX runtime assets..."
-    Invoke-WebRequest -Uri $DevilutionXAssetsUrl -OutFile $AssetsPath -UseBasicParsing
-    $AssetsSource = $DevilutionXAssetsUrl
-}
-if (-not (Test-Path $AssetsPath)) {
-    throw 'devilutionx.mpq is missing from the test package.'
+$RequiredModAssets = @(
+    'manifest.ini',
+    'lua/inspect.lua',
+    'lua/devilutionx/events.lua',
+    'lua/mods/rtt/init.lua'
+)
+foreach ($relative in $RequiredModAssets) {
+    $path = Join-Path $RuntimeRttModDir $relative
+    if (-not (Test-Path $path)) {
+        throw "RTT runtime overlay missing required file: mods/return-to-tristram/$relative"
+    }
 }
 
 $ConfigDir = Join-Path $PackageDir 'config'
@@ -113,6 +161,7 @@ $Launcher | Set-Content -Path (Join-Path $PackageDir 'START_RTT_TEST.bat') -Enco
 $Readme = @"
 RETURN TO TRISTRAM — WINDOWS x64 TEST BUILD
 Version: $Version
+RTT commit: $RttCommit
 
 Ta paczka NIE zawiera danych gry Diablo firmy Blizzard.
 
@@ -121,6 +170,11 @@ URUCHOMIENIE
 2. Skopiuj swoj legalnie posiadany DIABDAT.MPQ z Diablo 1 do katalogu paczki.
 3. Opcjonalnie podlacz kontroler Xbox / kompatybilny XInput.
 4. Uruchom START_RTT_TEST.bat.
+
+UWAGA O ASSETACH
+Ta paczka zawiera dokladny loose asset tree z przypietego commita DevilutionX.
+Nie korzysta z losowego/latest asset bundle jako zamiennika dla builda developerskiego.
+Dzieki temu binarka i Lua/TSV/UI assets sa z tej samej rewizji.
 
 CO SPRAWDZIC W PHASE 1
 - Return to Tristram jest aktywny jako mod.
@@ -142,10 +196,9 @@ w BUILD_INFO.txt.
 "@
 $Readme | Set-Content -Path (Join-Path $PackageDir 'README_TEST_PL.txt') -Encoding UTF8
 
-$RttCommit = (git -C $RepoRoot rev-parse HEAD).Trim()
-$EngineCommit = (git -C (Join-Path $RepoRoot 'Engine/devilutionx') rev-parse HEAD).Trim()
 $ExeHash = (Get-FileHash (Join-Path $PackageDir 'devilutionx.exe') -Algorithm SHA256).Hash
-$AssetsHash = (Get-FileHash $AssetsPath -Algorithm SHA256).Hash
+$InspectHash = (Get-FileHash (Join-Path $LooseAssetsDir 'lua/inspect.lua') -Algorithm SHA256).Hash
+$AssetsVersion = (Get-Content (Join-Path $LooseAssetsDir 'ASSETS_VERSION') -Raw).Trim()
 $BuildInfo = @"
 Return to Tristram Windows x64 test package
 Version: $Version
@@ -154,8 +207,9 @@ DevilutionX commit: $EngineCommit
 Configuration: $Configuration
 Generated UTC: $([DateTime]::UtcNow.ToString('o'))
 devilutionx.exe SHA256: $ExeHash
-devilutionx.mpq SHA256: $AssetsHash
-devilutionx.mpq source: $AssetsSource
+Pinned assets mode: $AssetsMode
+Pinned ASSETS_VERSION: $AssetsVersion
+assets/lua/inspect.lua SHA256: $InspectHash
 Proprietary Diablo game data included: NO
 "@
 $BuildInfo | Set-Content -Path (Join-Path $PackageDir 'BUILD_INFO.txt') -Encoding UTF8
