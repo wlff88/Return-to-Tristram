@@ -28,7 +28,7 @@ diff --git a/Source/lua/lua_event.cpp b/Source/lua/lua_event.cpp
  #include "monster.h"
  #include "player.h"
  #include "utils/log.hpp"
-@@ -73,6 +74,11 @@ void StoreOpened(std::string_view name)
+@@ -73,7 +74,12 @@ void StoreOpened(std::string_view name)
  {
  	CallLuaEvent("StoreOpened", name);
  }
