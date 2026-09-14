@@ -1,68 +1,161 @@
 # Roadmap
 
-## Phase 0 — Foundation reset
+This roadmap reflects the current single-engine Return to Tristram architecture. DevilutionX is the engine foundation; RTT gameplay/content is layered through data, Lua and small audited engine hooks.
 
-- [x] Preserve previous prototype on backup branch
-- [x] Replace project layout with modular skeleton
+## Phase 0 — Foundation reset — COMPLETE
+
+- [x] Preserve previous prototype on `backup-before-ultimate-reset-2026-09-14`
+- [x] Replace project layout with modular DevilutionX-based skeleton
+- [x] Establish one-engine architecture and retire the dual-runtime direction
 - [x] Add third-party source/licence policy
+- [x] Audit Tchernobog, Belzebub, The Hell 4 and Infernity source/provenance status
 - [x] Add bootstrap data schemas
+- [x] Add project status and versioning policy
+- [x] Align README and roadmap with actual `main` state
 
-## Phase 1 — DevilutionX baseline
+**Exit criterion:** repository structure, source policy, project direction and status documentation are internally consistent.
+
+## Phase 1 — DevilutionX baseline — ENGINE COMPLETE / RUNTIME ACCEPTANCE PENDING
 
 - [x] Select exact upstream revision
 - [x] Record upstream licence and commit
 - [x] Integrate engine source as an auditable git submodule
-- [x] Add baseline verification
+- [x] Add baseline SHA verification
 - [x] Add Windows bootstrap/build wrapper
 - [x] Add minimal runtime mod manifest
 - [x] Add baseline/data validation CI
+- [x] Add Windows MSVC compile CI
+- [x] Verify CI produces `devilutionx.exe`
 - [ ] Confirm Windows x64 build on developer workstation
-- [ ] Verify vanilla campaign launch
+- [ ] Verify vanilla campaign launch with legally supplied game data
 - [ ] Verify RTT entry in mod loader
-- [ ] Verify save/load
-- [ ] Verify controller input
-- [ ] Verify multiplayer baseline
+- [ ] Verify RTT save/load
+- [ ] Verify controller flow from menu through combat/inventory
+- [ ] Verify two-client multiplayer baseline
 
-## Phase 2 — Mod framework
+**Exit criterion:** one real Windows runtime smoke-test session completes launch -> Tristram -> Cathedral -> combat -> save -> reload, plus a basic multiplayer connection test.
+
+## Phase 2 — Mod framework — ACTIVE
 
 - [x] Initial feature flag/config file
 - [x] Runtime package skeleton
 - [x] Generic sparse-override to DevilutionX TSV exporter
 - [x] First no-op end-to-end table export (`Experience.tsv`)
-- [ ] Expand table map to items, affixes, uniques, monsters, spells and classes
-- [ ] Module hook interfaces
-- [ ] One demonstrator feature per module
-- [ ] Multiplayer compatibility policy for Lua/TSV/MPQ mods
+- [x] First real gameplay TSV override (starter gold)
+- [x] Ordered/idempotent engine patch application
+- [x] CI validation that all RTT engine patches apply to the pinned baseline
+- [x] First presentation-only Lua engine extension hook
+- [x] Lua-driven loot-filter demonstrator
+- [x] Monster resistance/immunity display demonstrator
+- [ ] Expand table map to items, affixes, uniques, monsters, spells and all class tables
+- [ ] Define stable RTT content-ID registry
+- [ ] Define RTT save-version/migration layer before generated item systems expand
+- [ ] Formal module lifecycle/hook interfaces
+- [ ] One demonstrator feature per gameplay module
+- [ ] Multiplayer compatibility policy for Lua/TSV/MPQ/runtime extensions
 
-## Phase 3 — Classic+
+**Exit criterion:** RTT can add/override content in every planned gameplay family without ad-hoc engine edits, with stable IDs and an explicit save/network policy.
 
-- [ ] QoL baseline
-- [ ] Shared/expanded stash design
-- [ ] Loot filter
+## Phase 3 — Classic+ — STARTED
+
+- [ ] Complete Classic+ QoL baseline
+- [x] Loot filter v1
+- [x] Exact monster resistance/immunity display
+- [x] Use upstream stash instead of duplicating it
+- [x] Use upstream 12 spell hotkeys instead of duplicating them
+- [ ] Alternate weapon set / weapon swap
+- [ ] Advanced item tooltip
+- [ ] Loot filter 2.0 with user-configurable rules/presets
 - [ ] Controller-first UX review
+- [ ] Quick inventory/stash transfer review
+- [ ] Gold handling QoL review
 - [ ] Balance-safe item additions
+- [ ] Full Classic+ runtime regression pass
 
-## Phase 4 — Resurrected campaign
+**Exit criterion:** the original campaign is fully playable as RTT with modern QoL and no required expanded-campaign/endgame systems.
 
-- [ ] Expanded quest framework
+## Phase 4 — Itemisation, skills and classes
+
+- [ ] Stable base item registry
+- [ ] Rare item generation
+- [ ] Tiered affix system
+- [ ] RTT unique-item framework
+- [ ] Set-item framework
+- [ ] Crafting foundation
+- [ ] Active skill progression framework
+- [ ] Passive/notable/mastery framework
+- [ ] Class extension framework
+- [ ] First new RTT class vertical slice
+- [ ] Save migration tests for generated items and progression
+
+**Exit criterion:** at least one complete new build archetype can progress through the campaign using RTT itemisation, skills and class mechanics without item morphing after save/load.
+
+## Phase 5 — Resurrected campaign
+
+- [ ] Expanded quest state machine
+- [ ] Restored/reimagined quest content where legally appropriate
 - [ ] Additional classes
-- [ ] Skill progression
-- [ ] New/expanded monsters and bosses
-- [ ] Extended itemisation and crafting
+- [ ] New/expanded monster families
+- [ ] Elite/champion modifier framework
+- [ ] New/expanded bosses with phase support
+- [ ] Additional locations/dungeons
+- [ ] Extended itemisation and crafting content
+- [ ] Difficulty progression beyond vanilla balance assumptions
 
-## Phase 5 — Abyss
+**Exit criterion:** a complete expanded campaign path from Tristram to a new RTT campaign endpoint is playable and save/network stable.
 
-- [ ] Abyss keys
+## Phase 6 — Abyss endgame
+
+- [ ] Abyss key system
 - [ ] Tier system
-- [ ] Dungeon modifiers
-- [ ] Corruption
+- [ ] Dungeon modifier system
+- [ ] Procedural/repeatable endgame instance pipeline
+- [ ] Corruption system
 - [ ] Endgame boss pool
+- [ ] Boss-fragment/key progression
 - [ ] Risk/reward tuning
+- [ ] Endgame-exclusive itemisation layer
 
-## Phase 6 — Hardening
+**Exit criterion:** campaign completion feeds a repeatable T1+ endgame loop with deterministic generation, meaningful progression and stable saves/multiplayer.
 
-- [ ] Save migration strategy
-- [ ] Multiplayer determinism tests
-- [ ] MPQ packaging
-- [ ] Documentation
-- [ ] Release pipeline
+## Phase 7 — Hardcore and multiplayer completion
+
+- [ ] Hardcore ruleset/permadeath
+- [ ] Shared multiplayer map decision/implementation
+- [ ] Shared multiplayer XP decision/implementation
+- [ ] Determinism tests for item RNG
+- [ ] Determinism tests for monster/boss state
+- [ ] Determinism tests for quests and Abyss generation
+- [ ] Host/client crafting verification
+- [ ] Host/client save/reconnect verification
+
+**Exit criterion:** all supported modes have documented multiplayer semantics and deterministic regression coverage.
+
+## Phase 8 — Hardening and release engineering
+
+- [ ] Save migration strategy finalized across released versions
+- [ ] Packaging without proprietary Blizzard assets
+- [ ] Windows release artifact
+- [ ] Linux release artifact
+- [ ] macOS release artifact
+- [ ] Automated release pipeline
+- [ ] User installation/update documentation
+- [ ] Mod/content author documentation
+- [ ] Performance pass
+- [ ] Crash/telemetry/logging review
+- [ ] Feature freeze and regression campaign
+
+**Exit criterion:** reproducible public release packages can be built from tagged source without distributing proprietary game data.
+
+## Release milestones
+
+- `0.1.x` — Classic+ development line
+- `0.2.x` — itemisation core
+- `0.3.x` — skills/classes vertical slice
+- `0.4.x` — Resurrected campaign
+- `0.5.x` — monster/boss content completion
+- `0.6.x` — crafting/content depth
+- `0.7.x` — Abyss endgame
+- `0.8.x` — multiplayer/hardcore feature complete
+- `0.9.x` — beta / feature freeze
+- `1.0.0` — full Return to Tristram release

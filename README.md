@@ -4,6 +4,25 @@ Return to Tristram is a Diablo I expansion/overhaul project built on a pinned De
 
 The project uses one engine foundation and re-implements selected mechanics inspired by the Diablo I modding scene as isolated, reviewable modules instead of trying to merge several incompatible executables.
 
+## Project status
+
+**Foundation reset is complete.** RTT now has a single-engine architecture, a pinned DevilutionX baseline, reproducible Windows MSVC CI, sparse TSV runtime generation, auditable engine patches and the first RTT gameplay/QoL features.
+
+Current development focus is the transition from **Phase 2 — Mod framework** into **Phase 3 — Classic+**.
+
+Implemented RTT-specific features include:
+
+- sparse TSV override/export pipeline;
+- Classic+ starter-gold gameplay override;
+- Lua-driven loot-filter hook and default loot filter;
+- immediate exact monster resistance/immunity display;
+- ordered, CI-validated DevilutionX patch application;
+- Windows MSVC compile gate that verifies `devilutionx.exe` is produced.
+
+The remaining baseline acceptance work is runtime smoke testing with legally supplied Diablo data: vanilla launch, RTT mod-loader entry, save/load, controller flow and multiplayer baseline.
+
+See `docs/PROJECT_STATUS.md` for the current acceptance state and `docs/ROADMAP.md` for the implementation roadmap.
+
 ## Current engine baseline
 
 - Upstream: `diasurgical/DevilutionX`
@@ -29,11 +48,12 @@ On Windows:
 ## Design pillars
 
 - Preserve the atmosphere and readability of Diablo I.
-- Use DevilutionX as the engine foundation.
+- Use DevilutionX as the single engine foundation.
 - Keep gameplay systems modular and data-driven.
-- Separate classic campaign, expanded campaign and endgame systems.
+- Separate classic campaign, expanded campaign and endgame systems through feature sets rather than engine forks.
 - Keep proprietary Diablo assets outside the repository.
 - Review licensing and provenance before importing third-party mod code.
+- Treat save serialization, deterministic RNG, network state and stable content IDs as explicit compatibility boundaries.
 
 ## Target modes
 
@@ -47,7 +67,8 @@ On Windows:
 ```text
 Return-to-Tristram/
 ├── Engine/
-│   └── devilutionx/          # pinned upstream submodule
+│   ├── devilutionx/          # pinned upstream submodule
+│   └── patches/              # small, ordered RTT engine extension patches
 ├── Mods/
 │   ├── core/
 │   ├── quests/
@@ -59,21 +80,23 @@ Return-to-Tristram/
 │   ├── bosses/
 │   ├── abyss/
 │   └── qol/
-├── Data/                     # RTT source schemas
-├── packaging/mod/            # runtime DevilutionX mod layout
+├── Data/                     # RTT source schemas and sparse overrides
+├── packaging/mod/            # staged DevilutionX mod runtime layout
 ├── config/
 ├── Assets/
 ├── docs/
 └── scripts/
 ```
 
+## Versioning
+
+The current development line is `0.1.0-dev`. It is **not** a Classic+ release yet. Pre-release and release gates are defined in `docs/VERSIONING.md`.
+
 ## Source policy
 
 Tchernobog, Belzebub, The Hell and Infernity are feature/reference sources. Every candidate feature is classified as reimplement, adapt, reference only or reject before code is imported. See `docs/MOD_SOURCE_MATRIX.md`.
 
-## Current phase
-
-**Phase 1 — DevilutionX baseline.** The engine revision is pinned, baseline verification and Windows build tooling exist, and a minimal RTT mod manifest is staged. The next acceptance gate is a real Windows x64 build + vanilla launch + RTT mod-loader smoke test.
+The former dual-runtime Abyss/DevilutionX experiment is superseded and retained only as repository history; RTT now uses the single-engine architecture described in `docs/ARCHITECTURE.md`.
 
 ## Asset and licence policy
 

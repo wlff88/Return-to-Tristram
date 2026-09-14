@@ -55,3 +55,12 @@ jobs:
           test -f packaging/mod/manifest.ini
           grep -q '^programId=RTRM$' packaging/mod/manifest.ini
           grep -q '^saveExtension=rtt$' packaging/mod/manifest.ini
+
+      - name: Validate RTT version consistency
+        run: |
+          test -f VERSION
+          version="$(tr -d '\r\n' < VERSION)"
+          test -n "$version"
+          manifest_version="$(sed -n 's/^version=//p' packaging/mod/manifest.ini | tr -d '\r\n')"
+          test "$manifest_version" = "$version"
+          grep -q "Current development version: \`$version\`" docs/VERSIONING.md
