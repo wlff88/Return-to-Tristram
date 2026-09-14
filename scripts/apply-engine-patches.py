@@ -10,6 +10,11 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 ENGINE = ROOT / "Engine" / "devilutionx"
 PATCH_DIR = ROOT / "Engine" / "patches"
 
+# DevilutionX currently contains a mix of LF and CRLF source files. RTT patch
+# files are stored with LF, so context matching must tolerate EOL-only
+# whitespace differences while still requiring the actual source text to match.
+PATCH_MATCH_ARGS = ["--ignore-space-change", "--ignore-whitespace"]
+
 
 def run_git(args: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
@@ -20,6 +25,10 @@ def run_git(args: list[str]) -> subprocess.CompletedProcess[str]:
         stderr=subprocess.PIPE,
         check=False,
     )
+
+
+def apply_args(*extra: str) -> list[str]:
+    return ["apply", *PATCH_MATCH_ARGS, *extra]
 
 
 def main() -> int:
@@ -38,19 +47,19 @@ def main() -> int:
 
     for patch in patches:
         rel = patch.relative_to(ROOT)
-        forward = run_git(["apply", "--check", str(patch)])
+        forward = run_git(apply_args("--check", str(patch)))
         if forward.returncode == 0:
             if args.check:
                 print(f"OK: {rel} applies cleanly")
             else:
-                applied = run_git(["apply", str(patch)])
+                applied = run_git(apply_args(str(patch)))
                 if applied.returncode != 0:
                     print(applied.stderr, file=sys.stderr)
                     return applied.returncode
                 print(f"APPLIED: {rel}")
             continue
 
-        reverse = run_git(["apply", "--reverse", "--check", str(patch)])
+        reverse = run_git(apply_args("--reverse", "--check", str(patch)))
         if reverse.returncode == 0:
             print(f"OK: {rel} is already applied")
             continue
