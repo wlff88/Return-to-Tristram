@@ -6,6 +6,7 @@ on:
       - 'Engine/**'
       - '.gitmodules'
       - 'scripts/build-windows.ps1'
+      - 'scripts/runtime-acceptance.ps1'
       - 'scripts/apply-engine-patches.py'
       - '.github/workflows/windows-build.yml'
   push:
@@ -14,6 +15,7 @@ on:
       - 'Engine/**'
       - '.gitmodules'
       - 'scripts/build-windows.ps1'
+      - 'scripts/runtime-acceptance.ps1'
       - 'scripts/apply-engine-patches.py'
       - '.github/workflows/windows-build.yml'
   workflow_dispatch:
@@ -36,6 +38,22 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 1
+
+      - name: Parse Phase 1 runtime acceptance harness
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path 'scripts/runtime-acceptance.ps1'),
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -ne 0) {
+            $errors | Format-List
+            throw "scripts/runtime-acceptance.ps1 contains PowerShell parse errors."
+          }
+          Write-Host "Phase 1 runtime acceptance harness parses successfully."
 
       - name: Install CMake
         uses: lukka/get-cmake@latest
