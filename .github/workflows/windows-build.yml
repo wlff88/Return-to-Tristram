@@ -1,0 +1,127 @@
+name: Windows MSVC baseline build
+
+on:
+  pull_request:
+    paths:
+      - 'Engine/**'
+      - '.gitmodules'
+      - 'scripts/build-windows.ps1'
+      - 'scripts/apply-engine-patches.py'
+      - '.github/workflows/windows-build.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'Engine/**'
+      - '.gitmodules'
+      - 'scripts/build-windows.ps1'
+      - 'scripts/apply-engine-patches.py'
+      - '.github/workflows/windows-build.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: windows-msvc-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      VCPKG_FEATURE_FLAGS: dependencygraph
+      VCPKG_DISABLE_METRICS: 1
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+    steps:
+      - name: Checkout RTT and pinned DevilutionX
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Cache pinned vcpkg
+        uses: actions/cache@v4
+        with:
+          path: vcpkg
+          key: vcpkg-${{ runner.os }}-40f3c709db80acf154ac4b17a1f83c564ebd022e
+
+      - name: Setup pinned vcpkg with retry
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $commit = '40f3c709db80acf154ac4b17a1f83c564ebd022e'
+          $root = $env:VCPKG_ROOT
+
+          if ((Test-Path (Join-Path $root 'vcpkg.exe')) -and (Test-Path (Join-Path $root '.git'))) {
+            $current = (git -C $root rev-parse HEAD).Trim()
+            if ($current -eq $commit) {
+              Write-Host "Using cached vcpkg $commit"
+              exit 0
+            }
+          }
+
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            try {
+              if (Test-Path $root) {
+                Remove-Item -Recurse -Force $root
+              }
+
+              git clone --filter=blob:none --no-checkout https://github.com/microsoft/vcpkg.git $root
+              if ($LASTEXITCODE -ne 0) { throw "vcpkg clone failed with exit code $LASTEXITCODE" }
+
+              git -C $root checkout --force $commit
+              if ($LASTEXITCODE -ne 0) { throw "vcpkg checkout failed with exit code $LASTEXITCODE" }
+
+              & (Join-Path $root 'bootstrap-vcpkg.bat') -disableMetrics
+              if ($LASTEXITCODE -ne 0) { throw "vcpkg bootstrap failed with exit code $LASTEXITCODE" }
+
+              Write-Host "Pinned vcpkg is ready: $commit"
+              exit 0
+            }
+            catch {
+              Write-Warning "vcpkg setup attempt $attempt failed: $($_.Exception.Message)"
+              if ($attempt -eq 3) { throw }
+              Start-Sleep -Seconds (5 * $attempt)
+            }
+          }
+
+      - name: Verify pinned engine baseline
+        shell: pwsh
+        run: python scripts/verify-baseline.py
+
+      - name: Build pinned DevilutionX with Visual Studio MSVC
+        shell: pwsh
+        run: |
+          $lastCode = 1
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            try {
+              & ./scripts/build-windows.ps1 -Configuration Release -VcpkgRoot $env:VCPKG_ROOT
+              $lastCode = $LASTEXITCODE
+            }
+            catch {
+              $lastCode = 1
+              Write-Warning "Build attempt $attempt raised: $($_.Exception.Message)"
+            }
+
+            if ($lastCode -eq 0) {
+              Write-Host "Build succeeded on attempt $attempt"
+              exit 0
+            }
+
+            Write-Warning "Build attempt $attempt failed with exit code $lastCode"
+            if ($attempt -lt 3) {
+              Start-Sleep -Seconds (10 * $attempt)
+            }
+          }
+          exit $lastCode
+
+      - name: Verify executable
+        shell: pwsh
+        run: |
+          $candidates = @(
+            'build/devilutionx-windows-x64/Release/devilutionx.exe',
+            'build/devilutionx-windows-x64/devilutionx.exe'
+          )
+          $exe = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $exe) { throw "Missing devilutionx.exe in expected build output." }
+          Get-Item $exe | Select-Object FullName, Length
