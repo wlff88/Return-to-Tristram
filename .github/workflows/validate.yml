@@ -35,6 +35,12 @@ jobs:
           grep -q $'^Level\tExperience$' out/ci-mod/txtdata/Experience.tsv
           grep -q $'^1\t2000$' out/ci-mod/txtdata/Experience.tsv
 
+      - name: Validate Classic+ starter gold
+        run: |
+          grep -q $'^gold\t200$' out/ci-mod/txtdata/classes/warrior/starting_loadout.tsv
+          grep -q $'^gold\t200$' out/ci-mod/txtdata/classes/rogue/starting_loadout.tsv
+          grep -q $'^gold\t200$' out/ci-mod/txtdata/classes/sorcerer/starting_loadout.tsv
+
       - name: Validate runtime manifest
         run: |
           test -f packaging/mod/manifest.ini

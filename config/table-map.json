@@ -7,6 +7,27 @@
       "patch": "Data/overrides/Experience.tsv",
       "output": "txtdata/Experience.tsv",
       "key": "Level"
+    },
+    {
+      "name": "warrior-starting-loadout",
+      "upstream": "assets/txtdata/classes/warrior/starting_loadout.tsv",
+      "patch": "Data/overrides/classes/warrior/starting_loadout.tsv",
+      "output": "txtdata/classes/warrior/starting_loadout.tsv",
+      "key": "Variable"
+    },
+    {
+      "name": "rogue-starting-loadout",
+      "upstream": "assets/txtdata/classes/rogue/starting_loadout.tsv",
+      "patch": "Data/overrides/classes/rogue/starting_loadout.tsv",
+      "output": "txtdata/classes/rogue/starting_loadout.tsv",
+      "key": "Variable"
+    },
+    {
+      "name": "sorcerer-starting-loadout",
+      "upstream": "assets/txtdata/classes/sorcerer/starting_loadout.tsv",
+      "patch": "Data/overrides/classes/sorcerer/starting_loadout.tsv",
+      "output": "txtdata/classes/sorcerer/starting_loadout.tsv",
+      "key": "Variable"
     }
   ]
 }
