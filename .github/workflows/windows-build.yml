@@ -1,0 +1,62 @@
+name: Windows MSVC baseline build
+
+on:
+  pull_request:
+    paths:
+      - 'Engine/**'
+      - '.gitmodules'
+      - 'scripts/build-windows.ps1'
+      - '.github/workflows/windows-build.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'Engine/**'
+      - '.gitmodules'
+      - 'scripts/build-windows.ps1'
+      - '.github/workflows/windows-build.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: windows-msvc-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      VCPKG_FEATURE_FLAGS: dependencygraph
+      VCPKG_DISABLE_METRICS: 1
+    steps:
+      - name: Checkout RTT and pinned DevilutionX
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Restore or setup vcpkg
+        uses: lukka/run-vcpkg@v11.6
+        with:
+          vcpkgGitCommitId: '40f3c709db80acf154ac4b17a1f83c564ebd022e'
+          vcpkgJsonGlob: '**/Engine/devilutionx/vcpkg.json'
+
+      - name: Verify pinned engine baseline
+        shell: pwsh
+        run: python scripts/verify-baseline.py
+
+      - name: Build pinned DevilutionX with Visual Studio MSVC
+        shell: pwsh
+        run: ./scripts/build-windows.ps1 -Configuration Release -VcpkgRoot $env:VCPKG_ROOT
+
+      - name: Verify executable
+        shell: pwsh
+        run: |
+          $candidates = @(
+            'build/devilutionx-windows-x64/Release/devilutionx.exe',
+            'build/devilutionx-windows-x64/devilutionx.exe'
+          )
+          $exe = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $exe) { throw "Missing devilutionx.exe in expected build output." }
+          Get-Item $exe | Select-Object FullName, Length
