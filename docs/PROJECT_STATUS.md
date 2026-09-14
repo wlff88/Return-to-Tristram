@@ -7,7 +7,7 @@ This document is the canonical short-form view of the current Return to Tristram
 ## Overall state
 
 - **Phase 0 — Foundation reset:** COMPLETE
-- **Phase 1 — DevilutionX baseline:** engine/build foundation complete; runtime acceptance pending
+- **Phase 1 — DevilutionX baseline:** engine/build and acceptance harness complete; real Windows runtime acceptance pending
 - **Phase 2 — Mod framework:** active
 - **Phase 3 — Classic+:** started through isolated QoL/gameplay features
 - **Later phases:** planned, not yet feature-complete
@@ -42,9 +42,10 @@ The repository currently verifies:
 - runtime manifest structure;
 - ordered RTT engine patches apply cleanly to the pinned baseline;
 - Windows MSVC build succeeds;
-- the Windows build produces `devilutionx.exe`.
+- the Windows build produces `devilutionx.exe`;
+- the Phase 1 Windows runtime-acceptance harness remains wired to the RTT manifest/save namespace and required upstream CLI isolation arguments.
 
-A green compile is not treated as a substitute for runtime acceptance with user-supplied Diablo data.
+A green compile or CI preflight is not treated as a substitute for runtime acceptance with user-supplied Diablo data.
 
 ## Implemented RTT-specific functionality
 
@@ -56,7 +57,9 @@ A green compile is not treated as a substitute for runtime acceptance with user-
 - sparse authored TSV override pipeline;
 - generated runtime table export;
 - ordered/idempotent engine patch manager;
-- CI patch-compatibility gate.
+- CI patch-compatibility gate;
+- repeatable Windows Phase 1 runtime-acceptance harness;
+- isolated acceptance config/save directories and JSON evidence capture.
 
 ### Gameplay/QoL demonstrators
 
@@ -83,7 +86,13 @@ New generated item systems must not be treated as release-ready until RTT save v
 
 ## Runtime acceptance still required
 
-The next baseline acceptance pass must verify on a real installation with legally obtained Diablo data:
+The final Phase 1 baseline acceptance pass must run on a real Windows installation with legally obtained Diablo data. The canonical command is:
+
+```powershell
+./scripts/runtime-acceptance.ps1 -DiabloDataPath "C:\Games\Diablo"
+```
+
+The harness prepares an isolated RTT runtime and records evidence while the operator verifies:
 
 1. launch the pinned RTT build;
 2. confirm RTT appears/loads as a mod;
@@ -91,15 +100,17 @@ The next baseline acceptance pass must verify on a real installation with legall
 4. enter Cathedral Level 1;
 5. kill at least one monster and confirm RTT UI/QoL hooks behave correctly;
 6. save and exit;
-7. reload the `.rtt` save successfully;
+7. confirm the RTT save namespace is created and reload the save successfully;
 8. exercise controller navigation from menus through movement/combat/inventory;
 9. connect two clients and verify the vanilla multiplayer baseline.
 
-Until those tests pass, the project remains a development build rather than a public Classic+ alpha.
+A full successful run writes `out/runtime-acceptance/evidence/phase1-*.json` with `passed: true`. Until that evidence exists, the project remains a development build rather than a public Classic+ alpha.
+
+See `docs/PHASE1_RUNTIME_ACCEPTANCE.md` for the exact acceptance contract.
 
 ## Current priority order
 
-1. runtime smoke acceptance;
+1. execute the Phase 1 runtime acceptance harness on Windows with legal Diablo data;
 2. RTT save-version/migration foundation;
 3. stable RTT content-ID registry;
 4. complete data-table mapping;
