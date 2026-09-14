@@ -25,6 +25,7 @@ jobs:
     runs-on: windows-latest
     env:
       VCPKG_FEATURE_FLAGS: dependencygraph
+      VCPKG_DISABLE_METRICS: 1
     steps:
       - name: Checkout RTT and pinned DevilutionX
         uses: actions/checkout@v7
@@ -32,7 +33,7 @@ jobs:
           submodules: recursive
           fetch-depth: 1
 
-      - name: Install CMake and Ninja
+      - name: Install CMake
         uses: lukka/get-cmake@latest
 
       - name: Restore or setup vcpkg
@@ -41,24 +42,21 @@ jobs:
           vcpkgGitCommitId: '40f3c709db80acf154ac4b17a1f83c564ebd022e'
           vcpkgJsonGlob: '**/Engine/devilutionx/vcpkg.json'
 
-      - name: Install pinned upstream Windows preset
+      - name: Verify pinned engine baseline
         shell: pwsh
-        run: Copy-Item Packaging/windows/CMakePresets.json CMakePresets.json -Force
-        working-directory: Engine/devilutionx
+        run: python scripts/verify-baseline.py
 
-      - name: Configure DevilutionX
+      - name: Build pinned DevilutionX with Visual Studio MSVC
         shell: pwsh
-        run: cmake --preset ninja-vcpkg-relwithdebinfo
-        working-directory: Engine/devilutionx
-
-      - name: Build DevilutionX
-        shell: pwsh
-        run: cmake --build --preset ninja-vcpkg-relwithdebinfo --parallel 2
-        working-directory: Engine/devilutionx
+        run: ./scripts/build-windows.ps1 -Configuration Release -VcpkgRoot $env:VCPKG_ROOT
 
       - name: Verify executable
         shell: pwsh
         run: |
-          $exe = 'Engine/devilutionx/build-ninja-vcpkg-relwithdebinfo/devilutionx.exe'
-          if (-not (Test-Path $exe)) { throw "Missing build output: $exe" }
+          $candidates = @(
+            'build/devilutionx-windows-x64/Release/devilutionx.exe',
+            'build/devilutionx-windows-x64/devilutionx.exe'
+          )
+          $exe = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $exe) { throw "Missing devilutionx.exe in expected build output." }
           Get-Item $exe | Select-Object FullName, Length
