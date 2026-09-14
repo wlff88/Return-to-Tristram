@@ -1,82 +1,60 @@
 # Roadmap
 
-## Phase 0 — Reset / bootstrap
+## Phase 0 — Foundation reset
 
-- [x] Preserve old D2RMM prototype as `legacy-d2rmm`.
-- [x] Reset `main` around Abyss Resurrected architecture.
-- [x] Add README, agent mission, architecture and asset boundaries.
-- [ ] Audit current upstream Abyss.
-- [ ] ADR 0001: select upstream integration strategy.
+- [x] Preserve previous prototype on backup branch
+- [x] Replace project layout with modular skeleton
+- [x] Add third-party source/licence policy
+- [x] Add bootstrap data schemas
 
-## Phase 1 — Abyss baseline
+## Phase 1 — DevilutionX baseline
 
-- [ ] Pin upstream revision.
-- [ ] Reproducible Windows x64 build.
-- [ ] Existing tests passing.
-- [ ] CI using only freely distributable/synthetic data.
-- [ ] Document renderer/content seams.
+- [ ] Select exact upstream revision
+- [ ] Record upstream licence and commit
+- [ ] Integrate engine source in an auditable way
+- [ ] Establish Windows/macOS/Linux build notes
+- [ ] Verify vanilla campaign launch
+- [ ] Verify save/load
+- [ ] Verify controller input
+- [ ] Verify multiplayer baseline
 
-## Phase 2 — Resurrected provider layer
+## Phase 2 — Mod framework
 
-- [ ] `AssetProvider` contract.
-- [ ] `AssetResolver`.
-- [ ] `AssetManifest` and source fingerprinting.
-- [ ] `TestAssetProvider`.
-- [ ] local cache abstraction.
-- [ ] provider contract tests.
+- [ ] Feature flags/config layer
+- [ ] Project data loader/converter
+- [ ] Module hook interfaces
+- [ ] Data validation in CI
+- [ ] One demonstrator feature per module
 
-## Phase 3 — D2R local provider POC
+## Phase 3 — Classic+
 
-- [ ] explicit D2R installation configuration.
-- [ ] safe Windows installation detection.
-- [ ] installed build compatibility record.
-- [ ] resolve one environment set.
-- [ ] resolve Fallen model/material/animations.
-- [ ] no proprietary files in Git/CI/release artifacts.
+- [ ] QoL baseline
+- [ ] Shared/expanded stash design
+- [ ] Loot filter
+- [ ] Controller-first UX review
+- [ ] Balance-safe item additions
 
-Acceptance loop:
+## Phase 4 — Resurrected campaign
 
-```text
-Rogue Encampment -> Blood Moor -> Fallen -> attack -> death -> drop
-```
+- [ ] Expanded quest framework
+- [ ] Additional classes
+- [ ] Skill progression
+- [ ] New/expanded monsters and bosses
+- [ ] Extended itemisation and crafting
 
-## Phase 4 — Return to Tristram vertical slice
+## Phase 5 — Abyss
 
-- [ ] original key/portal flow.
-- [ ] original uber encounter.
-- [ ] original reward/charm-equivalent system.
-- [ ] data-driven boss phases.
-- [ ] deterministic test scenario.
+- [ ] Abyss keys
+- [ ] Tier system
+- [ ] Dungeon modifiers
+- [ ] Corruption
+- [ ] Endgame boss pool
+- [ ] Risk/reward tuning
 
-## Phase 5 — content systems
+## Phase 6 — Hardening
 
-- [ ] expanded skill data model.
-- [ ] item/affix system.
-- [ ] crafting/recipes.
-- [ ] scalable endgame tiers/modifiers.
-- [ ] richer boss scripting.
-- [ ] world/map extension without D2R level-ID constraints.
-
-## Phase 6 — HD production pipeline
-
-- [ ] asset provenance manifest.
-- [ ] project-owned texture/icon super-resolution workflow.
-- [ ] PBR material reconstruction workflow.
-- [ ] HD billboard pipeline for legacy project-owned sprites.
-- [ ] native 3D replacement workflow for priority assets.
-
-## Phase 7 — tools/editor
-
-- [ ] asset mapper.
-- [ ] item/skill editor.
-- [ ] encounter editor.
-- [ ] semantic map importer.
-- [ ] WYSIWYG map/world editor.
-
-## Explicitly deferred
-
-- Battle.net compatibility.
-- multiplayer protocol recreation.
-- full D2R asset extraction.
-- wholesale Median XL import.
-- mass AI asset generation before the engine vertical slice works.
+- [ ] Save migration strategy
+- [ ] Multiplayer determinism tests
+- [ ] Packaging
+- [ ] Documentation
+- [ ] Release pipeline
