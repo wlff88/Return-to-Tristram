@@ -1,0 +1,33 @@
+name: Validate RTT foundation
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout with DevilutionX baseline
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify pinned DevilutionX baseline
+        run: python scripts/verify-baseline.py
+
+      - name: Validate RTT source data
+        run: python scripts/validate-data.py
+
+      - name: Validate runtime manifest
+        run: |
+          test -f packaging/mod/manifest.ini
+          grep -q '^programId=RTRM$' packaging/mod/manifest.ini
+          grep -q '^saveExtension=rtt$' packaging/mod/manifest.ini

@@ -9,22 +9,29 @@
 
 ## Phase 1 — DevilutionX baseline
 
-- [ ] Select exact upstream revision
-- [ ] Record upstream licence and commit
-- [ ] Integrate engine source in an auditable way
-- [ ] Establish Windows/macOS/Linux build notes
+- [x] Select exact upstream revision
+- [x] Record upstream licence and commit
+- [x] Integrate engine source as an auditable git submodule
+- [x] Add baseline verification
+- [x] Add Windows bootstrap/build wrapper
+- [x] Add minimal runtime mod manifest
+- [x] Add baseline/data validation CI
+- [ ] Confirm Windows x64 build on developer workstation
 - [ ] Verify vanilla campaign launch
+- [ ] Verify RTT entry in mod loader
 - [ ] Verify save/load
 - [ ] Verify controller input
 - [ ] Verify multiplayer baseline
 
 ## Phase 2 — Mod framework
 
-- [ ] Feature flags/config layer
-- [ ] Project data loader/converter
+- [x] Initial feature flag/config file
+- [x] Runtime package skeleton
+- [ ] Map RTT source schemas to pinned DevilutionX TSV schemas
+- [ ] Project data converter
 - [ ] Module hook interfaces
-- [ ] Data validation in CI
 - [ ] One demonstrator feature per module
+- [ ] Multiplayer compatibility policy for Lua/TSV/MPQ mods
 
 ## Phase 3 — Classic+
 
@@ -55,6 +62,6 @@
 
 - [ ] Save migration strategy
 - [ ] Multiplayer determinism tests
-- [ ] Packaging
+- [ ] MPQ packaging
 - [ ] Documentation
 - [ ] Release pipeline

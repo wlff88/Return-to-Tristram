@@ -1,0 +1,3 @@
+[submodule "Engine/devilutionx"]
+	path = Engine/devilutionx
+	url = https://github.com/diasurgical/DevilutionX.git
