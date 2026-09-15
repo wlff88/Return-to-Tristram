@@ -1,0 +1,669 @@
+diff --git a/Source/CMakeLists.txt b/Source/CMakeLists.txt
+--- a/Source/CMakeLists.txt
++++ b/Source/CMakeLists.txt
+@@ -131,6 +131,7 @@ set(libdevilutionx_SRCS
+   panels/spell_book.cpp
+   panels/spell_icons.cpp
+   panels/spell_list.cpp
++  panels/waypoint_panel.cpp
+ 
+   platform/locale.cpp
+ 
+
+diff --git a/Source/diablo.cpp b/Source/diablo.cpp
+--- a/Source/diablo.cpp
++++ b/Source/diablo.cpp
+@@ -87,6 +87,7 @@
+ #include "panels/quest_log.hpp"
+ #include "panels/spell_book.hpp"
+ #include "panels/spell_list.hpp"
++#include "panels/waypoint_panel.hpp"
+ #include "pfile.h"
+ #include "plrmsg.h"
+ #include "qol/chatlog.h"
+@@ -374,6 +375,8 @@ void LeftMouseDown(uint16_t modState)
+ 		if (!gmenu_is_active() && !TryIconCurs()) {
+ 			if (QuestLogIsOpen && GetLeftPanel().contains(MousePosition)) {
+ 				QuestlogESC();
++			} else if (WaypointPanelIsOpen && GetLeftPanel().contains(MousePosition)) {
++				WaypointPanelESC();
+ 			} else if (qtextflag) {
+ 				qtextflag = false;
+ 				stream_stop();
+@@ -500,6 +503,7 @@ void ClosePanels()
+ 	CloseCharPanel();
+ 	SpellbookFlag = false;
+ 	QuestLogIsOpen = false;
++	WaypointPanelIsOpen = false;
+ }
+ 
+ void PressKey(SDL_Keycode vkey, uint16_t modState)
+@@ -612,6 +616,8 @@ void PressKey(SDL_Keycode vkey, uint16_t modState)
+ 			StoreEnter();
+ 		} else if (QuestLogIsOpen) {
+ 			QuestlogEnter();
++		} else if (WaypointPanelIsOpen) {
++			WaypointPanelEnter();
+ 		} else {
+ 			TypeChatMessage();
+ 		}
+@@ -621,6 +627,8 @@ void PressKey(SDL_Keycode vkey, uint16_t modState)
+ 			StoreUp();
+ 		} else if (QuestLogIsOpen) {
+ 			QuestlogUp();
++		} else if (WaypointPanelIsOpen) {
++			WaypointPanelUp();
+ 		} else if (HelpFlag) {
+ 			HelpScrollUp();
+ 		} else if (ChatLogFlag) {
+@@ -636,6 +644,8 @@ void PressKey(SDL_Keycode vkey, uint16_t modState)
+ 			StoreDown();
+ 		} else if (QuestLogIsOpen) {
+ 			QuestlogDown();
++		} else if (WaypointPanelIsOpen) {
++			WaypointPanelDown();
+ 		} else if (HelpFlag) {
+ 			HelpScrollDown();
+ 		} else if (ChatLogFlag) {
+@@ -804,6 +814,8 @@ void GameEventHandler(const SDL_Event &event, uint16_t modState)
+ 				StoreUp();
+ 			} else if (QuestLogIsOpen) {
+ 				QuestlogUp();
++			} else if (WaypointPanelIsOpen) {
++				WaypointPanelUp();
+ 			} else if (HelpFlag) {
+ 				HelpScrollUp();
+ 			} else if (ChatLogFlag) {
+@@ -822,6 +834,8 @@ void GameEventHandler(const SDL_Event &event, uint16_t modState)
+ 				StoreDown();
+ 			} else if (QuestLogIsOpen) {
+ 				QuestlogDown();
++			} else if (WaypointPanelIsOpen) {
++				WaypointPanelDown();
+ 			} else if (HelpFlag) {
+ 				HelpScrollDown();
+ 			} else if (ChatLogFlag) {
+@@ -1673,7 +1687,7 @@ void CharacterSheetKeyPressed()
+ 			if (MousePosition.x > 160 && MousePosition.y < GetMainPanel().position.y) {
+ 				SetCursorPos(MousePosition - Displacement { 160, 0 });
+ 			}
+-		} else if (!QuestLogIsOpen) { // We opened the character sheet
++		} else if (!QuestLogIsOpen && !WaypointPanelIsOpen) { // We opened the character sheet
+ 			if (MousePosition.x < 480 && MousePosition.y < GetMainPanel().position.y) {
+ 				SetCursorPos(MousePosition + Displacement { 160, 0 });
+ 			}
+@@ -1708,6 +1722,38 @@ void QuestLogKeyPressed()
+ 		}
+ 	}
+ 	CloseCharPanel();
++	WaypointPanelIsOpen = false;
++	CloseGoldWithdraw();
++	CloseStash();
++	CloseVisualStore();
++}
++
++void WaypointPanelKeyPressed()
++{
++	if (IsPlayerInStore())
++		return;
++	if (!WaypointPanelIsOpen) {
++		// Matches where the vanilla hidden town-warp entrances live
++		// (Source/levels/trigs.cpp): waypoint travel is only offered from town.
++		if (!MyPlayer->isOnLevel(0))
++			return;
++		StartWaypointPanel();
++	} else {
++		WaypointPanelIsOpen = false;
++	}
++	if (!IsRightPanelOpen() && CanPanelsCoverView()) {
++		if (!WaypointPanelIsOpen) { // We closed the waypoint panel
++			if (MousePosition.x > 160 && MousePosition.y < GetMainPanel().position.y) {
++				SetCursorPos(MousePosition - Displacement { 160, 0 });
++			}
++		} else if (!CharFlag) { // We opened the waypoint panel
++			if (MousePosition.x < 480 && MousePosition.y < GetMainPanel().position.y) {
++				SetCursorPos(MousePosition + Displacement { 160, 0 });
++			}
++		}
++	}
++	CloseCharPanel();
++	QuestLogIsOpen = false;
+ 	CloseGoldWithdraw();
+ 	CloseStash();
+ 	CloseVisualStore();
+@@ -2012,6 +2058,14 @@ void InitKeymapActions()
+ 	    QuestLogKeyPressed,
+ 	    nullptr,
+ 	    CanPlayerTakeAction);
++	options.Keymapper.AddAction(
++	    "RttWaypointPanel",
++	    N_("RTT Waypoints"),
++	    N_("Open the RTT waypoint panel (town only) to fast-travel to a visited dungeon level."),
++	    'M',
++	    WaypointPanelKeyPressed,
++	    nullptr,
++	    CanPlayerTakeAction);
+ 	options.Keymapper.AddAction(
+ 	    "SpellBook",
+ 	    N_("Spellbook"),
+@@ -2131,48 +2185,6 @@ void InitKeymapActions()
+ 	    [] {
+ 		    ToggleChatLog();
+ 	    });
+-	options.Keymapper.AddAction(
+-	    "WeaponSwap",
+-	    N_("Swap weapon set"),
+-	    N_("Switch between the two equipped weapon sets."),
+-	    'W',
+-	    [] {
+-		    SwapWeaponSet(*MyPlayer);
+-	    },
+-	    nullptr,
+-	    [] { return CanPlayerTakeAction() && !IsPlayerInStore(); });
+-	options.Keymapper.AddAction(
+-	    "RttSpendProgression",
+-	    N_("RTT Spend Necromancer upgrade point"),
+-	    N_("Spend an available Necromancer progression point on the next unlocked upgrade."),
+-	    SDLK_F4,
+-	    [] { RttSpendNextProgressionPoint(*MyPlayer); },
+-	    nullptr,
+-	    [] { return CanPlayerTakeAction(); });
+-	options.Keymapper.AddAction(
+-	    "RttReforgeRare",
+-	    N_("RTT Reforge held Rare"),
+-	    N_("Reforge the RTT Rare currently held by the cursor."),
+-	    SDLK_F5,
+-	    [] { RttReforgeHeldRare(*MyPlayer); },
+-	    nullptr,
+-	    [] { return CanPlayerTakeAction() && invflag; });
+-	options.Keymapper.AddAction(
+-	    "RttRaiseAffixTier",
+-	    N_("RTT Raise affix tier"),
+-	    N_("Raise one eligible affix tier on the held RTT Rare."),
+-	    SDLK_F6,
+-	    [] { RttRaiseHeldAffixTier(*MyPlayer); },
+-	    nullptr,
+-	    [] { return CanPlayerTakeAction() && invflag; });
+-	options.Keymapper.AddAction(
+-	    "RttRerollAffixSlot",
+-	    N_("RTT Reroll affix slot"),
+-	    N_("Reroll the affix layout on the held RTT Rare."),
+-	    SDLK_F7,
+-	    [] { RttRerollHeldAffixSlot(*MyPlayer); },
+-	    nullptr,
+-	    [] { return CanPlayerTakeAction() && invflag; });
+ 	options.Keymapper.AddAction(
+ 	    "SortInv",
+ 	    N_("Sort Inventory"),
+@@ -2294,6 +2306,10 @@ void InitPadmapActions()
+ 			    doom_close();
+ 			    return;
+ 		    }
++		    if (WaypointPanelIsOpen) {
++			    WaypointPanelIsOpen = false;
++			    return;
++		    }
+ 
+ 		    GameAction action;
+ 		    if (SpellSelectFlag)
+@@ -2309,7 +2325,7 @@ void InitPadmapActions()
+ 		    ProcessGameAction(action);
+ 	    },
+ 	    nullptr,
+-	    [] { return DoomFlag || SpellSelectFlag || invflag || SpellbookFlag || QuestLogIsOpen || CharFlag; });
++	    [] { return DoomFlag || WaypointPanelIsOpen || SpellSelectFlag || invflag || SpellbookFlag || QuestLogIsOpen || CharFlag; });
+ 	options.Padmapper.AddAction(
+ 	    "MoveUp",
+ 	    N_("Move up"),
+@@ -2384,48 +2400,6 @@ void InitPadmapActions()
+ 	    },
+ 	    nullptr,
+ 	    []() { return CanPlayerTakeAction() && !InGameMenu(); });
+-	options.Padmapper.AddAction(
+-	    "WeaponSwap",
+-	    N_("Swap weapon set"),
+-	    N_("Switch between the two equipped weapon sets."),
+-	    { ControllerButton_BUTTON_BACK, ControllerButton_BUTTON_Y },
+-	    [] {
+-		    SwapWeaponSet(*MyPlayer);
+-	    },
+-	    nullptr,
+-	    []() { return CanPlayerTakeAction() && !InGameMenu() && !IsPlayerInStore(); });
+-	options.Padmapper.AddAction(
+-	    "RttSpendProgression",
+-	    N_("RTT Spend Necromancer upgrade point"),
+-	    N_("Spend an available Necromancer progression point on the next unlocked upgrade."),
+-	    ControllerButton_NONE,
+-	    [] { RttSpendNextProgressionPoint(*MyPlayer); },
+-	    nullptr,
+-	    []() { return CanPlayerTakeAction() && !InGameMenu(); });
+-	options.Padmapper.AddAction(
+-	    "RttReforgeRare",
+-	    N_("RTT Reforge held Rare"),
+-	    N_("Reforge the RTT Rare currently held by the cursor."),
+-	    ControllerButton_NONE,
+-	    [] { RttReforgeHeldRare(*MyPlayer); },
+-	    nullptr,
+-	    []() { return CanPlayerTakeAction() && invflag && !InGameMenu(); });
+-	options.Padmapper.AddAction(
+-	    "RttRaiseAffixTier",
+-	    N_("RTT Raise affix tier"),
+-	    N_("Raise one eligible affix tier on the held RTT Rare."),
+-	    ControllerButton_NONE,
+-	    [] { RttRaiseHeldAffixTier(*MyPlayer); },
+-	    nullptr,
+-	    []() { return CanPlayerTakeAction() && invflag && !InGameMenu(); });
+-	options.Padmapper.AddAction(
+-	    "RttRerollAffixSlot",
+-	    N_("RTT Reroll affix slot"),
+-	    N_("Reroll the affix layout on the held RTT Rare."),
+-	    ControllerButton_NONE,
+-	    [] { RttRerollHeldAffixSlot(*MyPlayer); },
+-	    nullptr,
+-	    []() { return CanPlayerTakeAction() && invflag && !InGameMenu(); });
+ 	options.Padmapper.AddAction(
+ 	    "QuestLog",
+ 	    N_("Quest log"),
+@@ -2436,6 +2410,14 @@ void InitPadmapActions()
+ 	    },
+ 	    nullptr,
+ 	    []() { return CanPlayerTakeAction() && !InGameMenu(); });
++	options.Padmapper.AddAction(
++	    "RttWaypointPanel",
++	    N_("RTT Waypoints"),
++	    N_("Open the RTT waypoint panel (town only) to fast-travel to a visited dungeon level."),
++	    ControllerButton_NONE,
++	    WaypointPanelKeyPressed,
++	    nullptr,
++	    []() { return CanPlayerTakeAction() && !InGameMenu(); });
+ 	options.Padmapper.AddAction(
+ 	    "SpellBook",
+ 	    N_("Spellbook"),
+
+diff --git a/Source/minitext.cpp b/Source/minitext.cpp
+--- a/Source/minitext.cpp
++++ b/Source/minitext.cpp
+@@ -18,6 +18,7 @@
+ #include "engine/render/primitive_render.hpp"
+ #include "engine/render/text_render.hpp"
+ #include "panels/quest_log.hpp"
++#include "panels/waypoint_panel.hpp"
+ #include "tables/playerdat.hpp"
+ #include "tables/textdat.h"
+ #include "utils/language.h"
+@@ -164,6 +165,7 @@ void InitQTextMsg(_speech_id m)
+ 	}
+ 	if (Speeches[m].scrlltxt) {
+ 		QuestLogIsOpen = false;
++		WaypointPanelIsOpen = false;
+ 		LoadText(_(Speeches[m].txtstr));
+ 		qtextflag = true;
+ 		qtextSpd = CalculateTextSpeed(sfxnr);
+
+diff --git a/Source/stores.cpp b/Source/stores.cpp
+--- a/Source/stores.cpp
++++ b/Source/stores.cpp
+@@ -29,6 +29,7 @@
+ #include "options.h"
+ #include "panels/info_box.hpp"
+ #include "panels/quest_log.hpp"
++#include "panels/waypoint_panel.hpp"
+ #include "qol/stash.h"
+ #include "qol/visual_store.h"
+ #include "tables/townerdat.hpp"
+@@ -2294,6 +2295,7 @@ void StartStore(TalkID s)
+ 	CloseCharPanel();
+ 	RenderGold = false;
+ 	QuestLogIsOpen = false;
++	WaypointPanelIsOpen = false;
+ 	CloseGoldDrop();
+ 	ClearSText(0, NumStoreLines);
+ 	ReleaseStoreBtn();
+
+diff --git a/Source/control/control_panel.cpp b/Source/control/control_panel.cpp
+--- a/Source/control/control_panel.cpp
++++ b/Source/control/control_panel.cpp
+@@ -20,6 +20,7 @@
+ #include "panels/partypanel.hpp"
+ #include "panels/quest_log.hpp"
+ #include "panels/spell_book.hpp"
++#include "panels/waypoint_panel.hpp"
+ #include "panels/spell_icons.hpp"
+ #include "panels/spell_list.hpp"
+ #include "pfile.h"
+@@ -62,7 +63,7 @@ const Rectangle &GetRightPanel()
+ }
+ bool IsLeftPanelOpen()
+ {
+-	return CharFlag || QuestLogIsOpen || IsStashOpen || IsVisualStoreOpen;
++	return CharFlag || QuestLogIsOpen || WaypointPanelIsOpen || IsStashOpen || IsVisualStoreOpen;
+ }
+ bool IsRightPanelOpen()
+ {
+@@ -229,7 +230,7 @@ bool IsLevelUpButtonVisible()
+ 	if (IsPlayerInStore() || IsStashOpen || IsVisualStoreOpen) {
+ 		return false;
+ 	}
+-	if (QuestLogIsOpen && GetLeftPanel().contains(GetMainPanel().position + Displacement { 0, -74 })) {
++	if ((QuestLogIsOpen || WaypointPanelIsOpen) && GetLeftPanel().contains(GetMainPanel().position + Displacement { 0, -74 })) {
+ 		return false;
+ 	}
+ 
+@@ -301,6 +302,7 @@ void FocusOnCharInfo()
+ void OpenCharPanel()
+ {
+ 	QuestLogIsOpen = false;
++	WaypointPanelIsOpen = false;
+ 	CloseGoldWithdraw();
+ 	CloseStash();
+ 	CloseVisualStore();
+@@ -567,6 +569,7 @@ void CheckMainPanelButtonUp()
+ 			break;
+ 		case PanelButtonQlog:
+ 			CloseCharPanel();
++			WaypointPanelIsOpen = false;
+ 			CloseGoldWithdraw();
+ 			CloseStash();
+ 			CloseVisualStore();
+
+diff --git a/Source/controls/plrctrls.cpp b/Source/controls/plrctrls.cpp
+--- a/Source/controls/plrctrls.cpp
++++ b/Source/controls/plrctrls.cpp
+@@ -45,6 +45,7 @@
+ #include "panels/quest_log.hpp"
+ #include "panels/spell_icons.hpp"
+ #include "panels/spell_list.hpp"
++#include "panels/waypoint_panel.hpp"
+ #include "panels/ui_panels.hpp"
+ #include "qol/chatlog.h"
+ #include "qol/stash.h"
+@@ -1779,6 +1780,16 @@ void QuestLogMove(AxisDirection moveDir)
+ 		QuestlogDown();
+ }
+ 
++void WaypointPanelMove(AxisDirection moveDir)
++{
++	static AxisDirectionRepeater repeater;
++	moveDir = repeater.Get(moveDir);
++	if (moveDir.y == AxisDirectionY_UP)
++		WaypointPanelUp();
++	else if (moveDir.y == AxisDirectionY_DOWN)
++		WaypointPanelDown();
++}
++
+ void StoreMove(AxisDirection moveDir)
+ {
+ 	static AxisDirectionRepeater repeater;
+@@ -1811,6 +1822,9 @@ HandleLeftStickOrDPadFn GetLeftStickOrDPadGameUIHandler()
+ 	if (QuestLogIsOpen) {
+ 		return &QuestLogMove;
+ 	}
++	if (WaypointPanelIsOpen) {
++		return &WaypointPanelMove;
++	}
+ 	if (SpellbookFlag) {
+ 		return &SpellBookMove;
+ 	}
+@@ -2431,7 +2445,7 @@ void PerformSpellAction()
+ 		return;
+ 	}
+ 
+-	if (QuestLogIsOpen)
++	if (QuestLogIsOpen || WaypointPanelIsOpen)
+ 		return;
+ 
+ 	if (invflag) {
+
+diff --git a/Source/controls/game_controls.cpp b/Source/controls/game_controls.cpp
+--- a/Source/controls/game_controls.cpp
++++ b/Source/controls/game_controls.cpp
+@@ -23,6 +23,7 @@
+ #include "options.h"
+ #include "panels/quest_log.hpp"
+ #include "panels/spell_list.hpp"
++#include "panels/waypoint_panel.hpp"
+ #include "qol/stash.h"
+ #include "stores.h"
+ #include "utils/is_of.hpp"
+@@ -203,7 +204,7 @@ bool GetGameAction(const SDL_Event &event, ControllerButtonEvent ctrlEvent, Game
+ 		translation = TranslateControllerButtonToGameMenuKey(ctrlEvent.button);
+ 	else if (inGameMenu)
+ 		translation = TranslateControllerButtonToMenuKey(ctrlEvent.button);
+-	else if (QuestLogIsOpen)
++	else if (QuestLogIsOpen || WaypointPanelIsOpen)
+ 		translation = TranslateControllerButtonToQuestLogKey(ctrlEvent.button);
+ 
+ 	if (translation != SDLK_UNKNOWN) {
+
+diff --git a/Source/engine/render/scrollrt.cpp b/Source/engine/render/scrollrt.cpp
+--- a/Source/engine/render/scrollrt.cpp
++++ b/Source/engine/render/scrollrt.cpp
+@@ -58,6 +58,7 @@
+ #include "panels/partypanel.hpp"
+ #include "panels/quest_log.hpp"
+ #include "panels/spell_list.hpp"
++#include "panels/waypoint_panel.hpp"
+ #include "plrmsg.h"
+ #include "qol/chatlog.h"
+ #include "qol/floatingnumbers.h"
+@@ -1408,6 +1409,8 @@ void DrawView(const Surface &out, Point startPosition)
+ 		DrawChr(out);
+ 	} else if (QuestLogIsOpen) {
+ 		DrawQuestLog(out);
++	} else if (WaypointPanelIsOpen) {
++		DrawWaypointPanel(out);
+ 	} else if (IsStashOpen) {
+ 		DrawStash(out);
+ 	} else if (IsVisualStoreOpen) {
+
+diff --git a/Source/qol/chatlog.cpp b/Source/qol/chatlog.cpp
+--- a/Source/qol/chatlog.cpp
++++ b/Source/qol/chatlog.cpp
+@@ -21,6 +21,7 @@
+ #include "inv.h"
+ #include "minitext.h"
+ #include "panels/quest_log.hpp"
++#include "panels/waypoint_panel.hpp"
+ #include "stores.h"
+ #include "utils/format.hpp"
+ #include "utils/language.h"
+@@ -106,6 +107,7 @@ void ToggleChatLog()
+ 			stream_stop();
+ 		}
+ 		QuestLogIsOpen = false;
++		WaypointPanelIsOpen = false;
+ 		HelpFlag = false;
+ 		CancelCurrentDiabloMsg();
+ 		gamemenu_off();
+
+diff --git a/Source/panels/waypoint_panel.cpp b/Source/panels/waypoint_panel.cpp
+new file mode 100644
+--- /dev/null
++++ b/Source/panels/waypoint_panel.cpp
+@@ -0,0 +1,164 @@
++#include "panels/waypoint_panel.hpp"
++
++#include <algorithm>
++#include <array>
++#include <string>
++#include <string_view>
++
++#include "DiabloUI/ui_flags.hpp"
++#include "control/control.hpp"
++#include "effects.h"
++#include "engine/render/clx_render.hpp"
++#include "engine/render/text_render.hpp"
++#include "minitext.h"
++#include "panels/quest_log.hpp"
++#include "panels/ui_panels.hpp"
++#include "player.h"
++#include "utils/format.hpp"
++#include "utils/language.h"
++
++namespace devilution {
++
++bool WaypointPanelIsOpen;
++
++namespace {
++
++/** Dungeon levels (1-16) the local player has visited, in ascending order */
++std::array<int, 16> EncounteredLevels;
++/** Number of valid entries in EncounteredLevels */
++int EncounteredLevelCount;
++/** Currently selected entry, or -1 if there is nothing to select */
++int SelectedWaypoint;
++
++constexpr Rectangle InnerPanel { { 32, 26 }, { 280, 300 } };
++constexpr int LineHeight = 12;
++int ListYOffset;
++int LineSpacing;
++
++std::string_view DungeonBranchName(int level)
++{
++    if (level <= 4) return _("Cathedral");
++    if (level <= 8) return _("Catacombs");
++    if (level <= 12) return _("Caves");
++    return _("Hell");
++}
++
++int WaypointMouseToEntry()
++{
++    Rectangle innerArea = InnerPanel;
++    innerArea.position += Displacement(GetLeftPanel().position.x, GetLeftPanel().position.y);
++    if (!innerArea.contains(MousePosition) || EncounteredLevelCount == 0)
++        return -1;
++    const int y = MousePosition.y - innerArea.position.y;
++    for (int i = 0; i < EncounteredLevelCount; i++) {
++        if (y >= ListYOffset + i * LineSpacing && y < ListYOffset + i * LineSpacing + LineHeight) {
++            return i;
++        }
++    }
++    return -1;
++}
++
++void PrintWaypointString(const Surface &out, int x, int y, std::string_view str, bool marked)
++{
++    const int width = GetLineWidth(str);
++    x += std::max((257 - width) / 2, 0);
++    if (marked) {
++        ClxDraw(out, GetPanelPosition(UiPanels::Quest, { x - 20, y + 13 }), (*pSPentSpn2Cels)[PentSpn2Spin()]);
++    }
++    DrawString(out, str, { GetPanelPosition(UiPanels::Quest, { x, y }), { 257, 0 } },
++        { .flags = UiFlags::ColorWhite });
++    if (marked) {
++        ClxDraw(out, GetPanelPosition(UiPanels::Quest, { x + width + 7, y + 13 }), (*pSPentSpn2Cels)[PentSpn2Spin()]);
++    }
++}
++
++} // namespace
++
++void DrawWaypointPanel(const Surface &out)
++{
++    const int l = WaypointMouseToEntry();
++    if (l >= 0) {
++        SelectedWaypoint = l;
++    }
++    const auto x = InnerPanel.position.x;
++    // Reuses the quest log's own background frame: RTT ships no new art
++    // assets, and a waypoint list is visually the same shape of panel.
++    ClxDraw(out, GetPanelPosition(UiPanels::Quest, { 0, 351 }), (*pQLogCel)[0]);
++    int y = InnerPanel.position.y + ListYOffset;
++    for (int i = 0; i < EncounteredLevelCount; i++) {
++        const int level = EncounteredLevels[i];
++        const std::string label = FormatRuntime(_("{:s} {:d}"), DungeonBranchName(level), level);
++        PrintWaypointString(out, x, y, label, i == SelectedWaypoint);
++        y += LineSpacing;
++    }
++}
++
++void StartWaypointPanel()
++{
++    EncounteredLevelCount = 0;
++    if (MyPlayer != nullptr) {
++        for (int level = 1; level <= 16; level++) {
++            if (MyPlayer->_pLvlVisited[level])
++                EncounteredLevels[EncounteredLevelCount++] = level;
++        }
++    }
++
++    ListYOffset = 0;
++    LineSpacing = LineHeight;
++    const int space = InnerPanel.size.height;
++    if (EncounteredLevelCount > 0) {
++        const int additionalSpace = space - EncounteredLevelCount * LineHeight;
++        const int addLineSpacing = std::clamp(additionalSpace / EncounteredLevelCount, 0, LineHeight);
++        LineSpacing = LineHeight + addLineSpacing;
++        const int overallHeight = EncounteredLevelCount * LineSpacing;
++        ListYOffset = std::max(0, (space - overallHeight) / 2);
++    }
++
++    SelectedWaypoint = EncounteredLevelCount > 0 ? 0 : -1;
++    WaypointPanelIsOpen = true;
++}
++
++void WaypointPanelUp()
++{
++    if (EncounteredLevelCount == 0) {
++        SelectedWaypoint = -1;
++        return;
++    }
++    SelectedWaypoint--;
++    if (SelectedWaypoint < 0) {
++        SelectedWaypoint = EncounteredLevelCount - 1;
++    }
++    PlaySFX(SfxID::MenuMove);
++}
++
++void WaypointPanelDown()
++{
++    if (EncounteredLevelCount == 0) {
++        SelectedWaypoint = -1;
++        return;
++    }
++    SelectedWaypoint++;
++    if (SelectedWaypoint >= EncounteredLevelCount) {
++        SelectedWaypoint = 0;
++    }
++    PlaySFX(SfxID::MenuMove);
++}
++
++void WaypointPanelEnter()
++{
++    PlaySFX(SfxID::MenuSelect);
++    if (EncounteredLevelCount != 0 && SelectedWaypoint >= 0 && SelectedWaypoint < EncounteredLevelCount) {
++        RttWarpToLevel(*MyPlayer, static_cast<uint8_t>(EncounteredLevels[SelectedWaypoint]));
++    }
++    WaypointPanelIsOpen = false;
++}
++
++void WaypointPanelESC()
++{
++    const int l = WaypointMouseToEntry();
++    if (l != -1) {
++        WaypointPanelEnter();
++    }
++}
++
++} // namespace devilution
+diff --git a/Source/panels/waypoint_panel.hpp b/Source/panels/waypoint_panel.hpp
+new file mode 100644
+--- /dev/null
++++ b/Source/panels/waypoint_panel.hpp
+@@ -0,0 +1,17 @@
++#pragma once
++
++#include "engine/surface.hpp"
++#include "utils/attributes.h"
++
++namespace devilution {
++
++extern DVL_API_FOR_TEST bool WaypointPanelIsOpen;
++
++void DrawWaypointPanel(const Surface &out);
++void StartWaypointPanel();
++void WaypointPanelUp();
++void WaypointPanelDown();
++void WaypointPanelEnter();
++void WaypointPanelESC();
++
++} // namespace devilution
