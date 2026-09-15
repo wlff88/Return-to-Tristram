@@ -61,20 +61,21 @@ This roadmap reflects the current single-engine Return to Tristram architecture.
 
 **Exit criterion:** RTT can add/override content in every planned gameplay family without ad-hoc engine edits, with stable IDs and an explicit save/network policy. **Satisfied.**
 
-## Phase 3 — Classic+ — STARTED
+## Phase 3 — Classic+ — ACTIVE
 
-- [ ] Complete Classic+ QoL baseline
+- [x] Establish canonical Classic+ defaults/profile
 - [x] Loot filter v1
 - [x] Exact monster resistance/immunity display
 - [x] Use upstream stash instead of duplicating it
 - [x] Use upstream 12 spell hotkeys instead of duplicating them
-- [ ] Diablo II-style visual vendor inventory (RTT art direction)
+- [x] Enable upstream visual-grid vendor inventory as the Classic+ baseline
+- [ ] RTT visual-store art-direction polish and runtime acceptance
 - [ ] Alternate weapon set / weapon swap
-- [ ] Advanced item tooltip
-- [ ] Loot filter 2.0 with user-configurable rules/presets
-- [ ] Controller-first UX review
-- [ ] Quick inventory/stash transfer review
-- [ ] Gold handling QoL review
+- [ ] Advanced RTT item comparison tooltip (native floating info is enabled as baseline)
+- [x] Loot filter 2.0 with user-configurable rules/presets
+- [x] Controller-first source/interaction review (runtime acceptance remains)
+- [x] Quick inventory/stash transfer review — reuse native Ctrl-click transfer
+- [x] Gold handling QoL review — auto-gold enabled; preserve 5000 stack cap for compatibility
 - [ ] Balance-safe item additions
 - [ ] Full Classic+ runtime regression pass
 
