@@ -38,7 +38,7 @@ diff --git a/Source/items.cpp b/Source/items.cpp
 +namespace { void CalcItemValue(Item &item); }
 +
  /** Maps from item_cursor_graphic to in-memory item type. */
-@@ -1,2 +1,195 @@
+@@ -229,2 +233,195 @@
 +constexpr uint32_t RttUpstreamBuffMask = 0x0000001FU;
 +constexpr uint32_t RttMarkerMask = 0x80000000U;
 +constexpr uint32_t RttRarityMask = 0x60000000U;
