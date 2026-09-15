@@ -38,6 +38,9 @@ jobs:
       - name: Validate Loot Filter 2.0
         run: python scripts/validate-loot-filter.py
 
+      - name: Validate item comparison tooltip
+        run: python scripts/validate-item-tooltip.py
+
       - name: Generate runtime tables
         run: python scripts/export-mod-data.py --output out/ci-mod
 
