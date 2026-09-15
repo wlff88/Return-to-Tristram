@@ -791,7 +791,7 @@ diff --git a/test/rtt_phase4_test.cpp b/test/rtt_phase4_test.cpp
 new file mode 100644
 --- /dev/null
 +++ b/test/rtt_phase4_test.cpp
-@@ -0,0 +1,218 @@
+@@ -0,0 +1,223 @@
 +#include <gtest/gtest.h>
 +#include <array>
 +#include <cstring>
@@ -980,7 +980,12 @@ new file mode 100644
 +    // ParseCmd()/OnRttChoice() would see it on a real client (RttChooseProgression's
 +    // own broadcast=true path only ever sends this on MyPlayer's behalf, so the
 +    // receive side is what actually attributes a choice to the right player).
-+    Players[1]._pClass = HeroClass::Sorcerer; Players[1].setCharacterLevel(1);
++    // Level 2 is the first level that has earned an unspent point (Earned(1)==0,
++    // Earned(2)==1), so use it rather than level 1 to avoid an unrelated "no
++    // points available" failure masking what this test actually checks.
++    Players[1]._pClass = HeroClass::Sorcerer; Players[1].setCharacterLevel(2);
++    EnsureRttNecromancerProgression(Players[1]);
++    MyPlayer->setCharacterLevel(2); EnsureRttNecromancerProgression(*MyPlayer);
 +    TCmdParam2 cmd {}; cmd.bCmd = CMD_RTT_CHOICE; cmd.wParam1 = Swap16LE(0); cmd.wParam2 = Swap16LE(1);
 +    EXPECT_EQ(ParseCmd(1, reinterpret_cast<const TCmd *>(&cmd), sizeof(cmd)), sizeof(cmd));
 +    EXPECT_EQ(Players[1].rttProgression[5], 1);
