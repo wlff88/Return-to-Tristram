@@ -44,6 +44,9 @@ jobs:
       - name: Validate weapon swap
         run: python scripts/validate-weapon-swap.py
 
+      - name: Validate Phase 3 engineering completion
+        run: python scripts/validate-phase3-complete.py
+
       - name: Generate runtime tables
         run: python scripts/export-mod-data.py --output out/ci-mod
 

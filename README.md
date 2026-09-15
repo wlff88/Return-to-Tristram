@@ -6,9 +6,9 @@ The project uses one engine foundation and re-implements selected mechanics insp
 
 ## Project status
 
-**Phase 0 and Phase 2 are complete.** RTT now has a single-engine architecture, a pinned DevilutionX baseline, a deterministic/versioned mod framework, reproducible Windows MSVC CI, sparse TSV runtime generation, stable content IDs, Save Schema v1, a multiplayer compatibility contract and the first RTT gameplay/QoL features.
+**Phase 0, Phase 2 and the engineering scope of Phase 3 are complete.** RTT now has a single-engine architecture, a pinned DevilutionX baseline, a deterministic/versioned mod framework, reproducible Windows MSVC CI, sparse TSV runtime generation, stable content IDs, Save Schema v1, a multiplayer compatibility contract and a complete Classic+ engineering baseline.
 
-Current development focus is **Phase 3 — Classic+**, while the final real-machine Phase 1 runtime acceptance remains pending.
+**Phase 1 and Phase 3 still require real-machine runtime acceptance.** Those manual Windows/controller/multiplayer tests are deliberately separate from engineering completion. Until they pass, RTT remains `0.1.0-dev` and is not promoted to the first Classic+ alpha.
 
 Implemented RTT-specific capabilities include:
 
@@ -20,13 +20,18 @@ Implemented RTT-specific capabilities include:
 - explicit multiplayer compatibility policy;
 - sparse TSV override/export pipeline;
 - Classic+ starter-gold gameplay override;
-- Lua-driven loot-filter hook and default loot filter;
+- Classic+ QoL default profile with visual-grid vendor inventory, auto-gold, belt refill, floating item info and other native DevilutionX QoL enabled;
+- Loot Filter 2.0 with presets and safe user rules;
 - immediate exact monster resistance/immunity display;
+- RTT equipped-item comparison tooltip;
+- persistent alternate weapon set / weapon swap without changing `PlayerPack`;
+- native stash, 12 spell hotkeys and Ctrl-click inventory/stash transfer reused rather than duplicated;
 - ordered, CI-validated DevilutionX patch application;
-- Windows MSVC compile gate that verifies `devilutionx.exe` is produced;
-- repeatable Phase 1 Windows runtime-acceptance harness with isolated saves/config and JSON evidence.
+- Windows MSVC compile/package gate;
+- repeatable Phase 1 runtime-acceptance harness with isolated saves/config and JSON evidence;
+- dedicated Phase 3 Classic+ runtime checklist and JSON evidence collector.
 
-See `docs/PROJECT_STATUS.md`, `docs/PHASE2_MOD_FRAMEWORK.md` and `docs/ROADMAP.md`.
+See `docs/PROJECT_STATUS.md`, `docs/PHASE3_CLASSIC_PLUS.md`, `docs/PHASE3_RUNTIME_ACCEPTANCE.md` and `docs/ROADMAP.md`.
 
 ## Current engine baseline
 
@@ -47,6 +52,12 @@ Canonical Phase 1 runtime acceptance:
 
 ```powershell
 ./scripts/runtime-acceptance.ps1 -DiabloDataPath "C:\Games\Diablo"
+```
+
+Deferred Phase 3 evidence collector:
+
+```powershell
+./scripts/phase3-acceptance-evidence.ps1
 ```
 
 ## Design pillars
