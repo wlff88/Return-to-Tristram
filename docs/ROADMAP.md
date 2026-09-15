@@ -85,21 +85,36 @@ This roadmap reflects the current single-engine Return to Tristram architecture.
 
 **Runtime exit criterion:** one real Windows run confirms `docs/PHASE3_RUNTIME_ACCEPTANCE.md` and records `phase3-*.json` with `passed: true`. Until then Phase 3 remains manual-runtime-acceptance pending and version stays `0.1.0-dev`.
 
-## Phase 4 — Itemisation, skills and classes
+## Phase 4 — Itemisation, skills and classes — ACTIVE
 
-- [ ] Stable base item registry populated with released content
-- [ ] Rare item generation
-- [ ] Tiered affix system
-- [ ] RTT unique-item framework
-- [ ] Set-item framework
-- [ ] Crafting foundation
-- [ ] Active skill progression framework
-- [ ] Passive/notable/mastery framework
-- [ ] Class extension framework
-- [ ] First new RTT class vertical slice
-- [ ] Save migration tests for generated items and progression
+### Foundation
 
-**Exit criterion:** at least one complete new build archetype can progress through the campaign using RTT itemisation, skills and class mechanics without item morphing after save/load.
+- [x] Expand stable content-ID registry with `set` and `skill` namespaces
+- [x] Populate first stable item archetypes, tiered affixes, uniques, set, recipes, skills and class IDs
+- [x] Define compact RTT item metadata v1 in `Item.dwBuff` without overlapping DevilutionX bits 0–4
+- [x] Reserve four append-only compact affix slots for future 2-prefix/2-suffix Rares
+- [x] Add Save Schema v2 with sequential v1 -> v2 migration
+- [x] Add itemization/progression state contracts
+- [x] Activate Phase 4 catalogs in itemization/crafting/skills/classes Lua modules
+- [x] Define first Necromancer logical class vertical slice and five-skill progression catalog
+- [x] Add cross-reference/bit-layout/save-migration CI validation
+
+### Gameplay engines
+
+- [ ] Rare item generation for fresh eligible drops only
+- [ ] Exact Rare reconstruction from persisted compact metadata
+- [ ] Tiered affix application and Rare naming/UI
+- [ ] RTT unique-item engine bridge
+- [ ] Set-item engine bridge and set-bonus evaluation
+- [ ] Crafting mutation engine using deterministic item reconstruction
+- [ ] Active skill progression and upgrade selection
+- [ ] Passive/notable/mastery progression
+- [ ] Class activation/persistence layer
+- [ ] Playable Necromancer vertical slice
+- [ ] Save migration/item round-trip tests for generated items and progression
+- [ ] Multiplayer reconstruction tests for RTT item metadata and class progression
+
+**Exit criterion:** at least one Necromancer build can progress through the original campaign using RTT Rare/Unique/Set itemisation, skills and class mechanics without item morphing after save/load or network reconstruction.
 
 ## Phase 5 — Resurrected campaign
 
