@@ -12,6 +12,7 @@ DevilutionX remains pinned as an upstream git submodule. Return to Tristram engi
 6. Patches affecting RNG, network state, save serialization, item generation, or simulation require explicit compatibility tests and documentation.
 7. Presentation-only hooks should not mutate deterministic game state.
 8. Save-format extensions should prefer separate, versioned RTT archive entries over changing upstream packed structures when practical.
+9. Every patch must have a matching entry in `Engine/patches/MANIFEST.json` (`upstream_commit`, `purpose`, `save_safe`, `network_safe`, `rng_safe`), enforced by `scripts/apply-engine-patches.py --check-manifest`.
 
 ## Patch 0001 — Lua item-label visibility hook
 

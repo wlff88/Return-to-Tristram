@@ -10,6 +10,18 @@ concurrency:
 jobs:
   contracts:
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - toolchain: gcc-14
+            cc: gcc-14
+            cxx: g++-14
+            packages: g++-14
+          - toolchain: clang-18
+            cc: clang-18
+            cxx: clang++-18
+            packages: clang-18
     steps:
       - uses: actions/checkout@v4
         with:
@@ -17,13 +29,13 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build cmake g++-14 libgtest-dev libgmock-dev libbenchmark-dev libsdl2-dev libsodium-dev libpng-dev libbz2-dev
+          sudo apt-get install -y ninja-build cmake ${{ matrix.packages }} libgtest-dev libgmock-dev libbenchmark-dev libsdl2-dev libsodium-dev libpng-dev libbz2-dev
       - name: Patch engine
         run: python3 scripts/apply-engine-patches.py
       - name: Build engine contracts
         env:
-          CC: gcc-14
-          CXX: g++-14
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
         run: |
           cmake -S Engine/devilutionx -B build/phase4 -G Ninja -DBUILD_TESTING=ON -DDEVILUTIONX_SYSTEM_BENCHMARK=OFF
           cmake --build build/phase4 --target rtt_phase4_test -j 2
@@ -35,5 +47,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: phase4-linux-evidence
+          name: phase4-linux-evidence-${{ matrix.toolchain }}
           path: build/phase4/phase4-results.xml

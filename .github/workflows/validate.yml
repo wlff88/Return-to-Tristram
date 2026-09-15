@@ -26,6 +26,9 @@ jobs:
       - name: Verify RTT engine patches apply cleanly
         run: python scripts/apply-engine-patches.py --check
 
+      - name: Verify every RTT engine patch has a manifest entry
+        run: python scripts/apply-engine-patches.py --check-manifest
+
       - name: Validate RTT source data
         run: python scripts/validate-data.py
 
