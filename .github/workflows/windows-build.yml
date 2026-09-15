@@ -169,8 +169,17 @@ jobs:
         shell: pwsh
         run: |
           $lastCode = 1
+          $engine = 'Engine/devilutionx'
           for ($attempt = 1; $attempt -le 3; $attempt++) {
             try {
+              # build-windows.ps1 applies the RTT patch stack in-place. Always
+              # restore the pinned submodule before a retry so a failed compile
+              # cannot poison the next attempt with an already-patched tree.
+              git -C $engine reset --hard HEAD
+              if ($LASTEXITCODE -ne 0) { throw "Engine reset failed with exit code $LASTEXITCODE" }
+              git -C $engine clean -fd
+              if ($LASTEXITCODE -ne 0) { throw "Engine clean failed with exit code $LASTEXITCODE" }
+
               & ./scripts/build-windows.ps1 -Configuration Release -VcpkgRoot $env:VCPKG_ROOT -Sol2Source $env:RTT_SOL2_SOURCE
               $lastCode = $LASTEXITCODE
             }
