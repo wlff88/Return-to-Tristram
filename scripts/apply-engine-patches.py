@@ -58,7 +58,7 @@ def run_apply(
     if result.returncode == 0 or patch.name not in RECOUNT_PATCHES:
         return result
 
-    return run_git(["apply", "--recount", *flags, str(patch)], cwd=cwd)
+    return run_git(["apply", "--recount", "--verbose", *flags, str(patch)], cwd=cwd)
 
 
 def check_patch_series(patches: list[pathlib.Path]) -> int:
