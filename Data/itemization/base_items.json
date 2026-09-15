@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "stableId": "RTT_ITEM_0002",
+      "symbol": "BONE_WAND_ARCHETYPE",
+      "name": "Bone Wand",
+      "engineFallback": {"id": "IDI_SHORTSTAFF", "itemType": "Staff", "equipType": "Two-handed"},
+      "tags": ["weapon", "caster", "staff", "necromancer"]
+    },
+    {
+      "stableId": "RTT_ITEM_0003",
+      "symbol": "OSSUARY_BLADE_ARCHETYPE",
+      "name": "Ossuary Blade",
+      "engineFallback": {"id": "IDI_BARDDAGGER", "itemType": "Sword", "equipType": "One-handed"},
+      "tags": ["weapon", "melee", "blade", "necromancer"]
+    },
+    {
+      "stableId": "RTT_ITEM_0004",
+      "symbol": "GRAVEWARD_SHIELD_ARCHETYPE",
+      "name": "Graveward Shield",
+      "engineFallback": {"id": "IDI_WARRSHLD", "itemType": "Shield", "equipType": "One-handed"},
+      "tags": ["armor", "shield", "defense", "necromancer"]
+    },
+    {
+      "stableId": "RTT_ITEM_0005",
+      "symbol": "BONEWEAVE_ROBE_ARCHETYPE",
+      "name": "Boneweave Robe",
+      "engineFallback": {"name": "Robe", "itemType": "LightArmor", "equipType": "Armor"},
+      "tags": ["armor", "caster", "light-armor", "necromancer"]
+    }
+  ]
+}
