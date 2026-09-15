@@ -1,0 +1,27 @@
+return {
+    profile = "classic-plus",
+    frameworkVersion = 1,
+    saveSchemaVersion = 1,
+    networkProtocolVersion = 1,
+    modules = {
+        core = true,
+        qol = true,
+        quests = true,
+        classes = true,
+        skills = true,
+        itemization = true,
+        crafting = true,
+        monsters = true,
+        bosses = true,
+        abyss = true,
+    },
+    gameplay = {
+        expandedQuests = false,
+        newClasses = false,
+        rareItems = false,
+        craftingRecipes = false,
+        eliteModifiers = false,
+        bossPhaseExtensions = false,
+        abyssEndgame = false,
+    },
+}
