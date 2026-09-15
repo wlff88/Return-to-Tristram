@@ -45,8 +45,15 @@ if (Test-Path $ZipPath) {
 }
 New-Item -ItemType Directory -Force -Path $PackageDir, $OutRoot | Out-Null
 
-# Visual Studio/vcpkg puts the executable and app-local runtime DLLs together.
-Copy-Item (Join-Path $RuntimeSourceDir '*') $PackageDir -Recurse -Force
+# vcpkg's app-local deployment step puts the executable and its runtime DLLs
+# together in the same flat directory for both generators. For the Visual
+# Studio generator that directory is the per-config Release/ subfolder, which
+# happens to contain nothing else. For Ninja (single-config) it is the build
+# root itself, which also holds vcpkg_installed/, CMakeFiles/ and similar
+# build-tree clutter -- recursing into vcpkg_installed's intermediate build
+# trees can even fail outright on files with unusual permissions there. Copy
+# only the top-level files (the exe plus its DLLs) instead of the whole tree.
+Get-ChildItem -Path $RuntimeSourceDir -File | Copy-Item -Destination $PackageDir -Force
 
 if (-not (Test-Path (Join-Path $PackageDir 'devilutionx.exe'))) {
     throw 'Packaged runtime is missing devilutionx.exe.'
