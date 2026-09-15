@@ -35,7 +35,7 @@ diff --git a/Source/items.cpp b/Source/items.cpp
  bool UniqueItemFlags[128];
  int MaxGold = GOLD_MAX_LIMIT;
  
-+void CalcItemValue(Item &item);
++namespace { void CalcItemValue(Item &item); }
 +
  /** Maps from item_cursor_graphic to in-memory item type. */
 @@ -126,6 +130,199 @@ char OilNames[10][25] = {
