@@ -61,7 +61,7 @@ This roadmap reflects the current single-engine Return to Tristram architecture.
 
 **Exit criterion:** RTT can add/override content in every planned gameplay family without ad-hoc engine edits, with stable IDs and an explicit save/network policy. **Satisfied.**
 
-## Phase 3 — Classic+ — ACTIVE
+## Phase 3 — Classic+ — ENGINEERING COMPLETE / MANUAL RUNTIME ACCEPTANCE PENDING
 
 - [x] Establish canonical Classic+ defaults/profile
 - [x] Loot filter v1
@@ -69,17 +69,21 @@ This roadmap reflects the current single-engine Return to Tristram architecture.
 - [x] Use upstream stash instead of duplicating it
 - [x] Use upstream 12 spell hotkeys instead of duplicating them
 - [x] Enable upstream visual-grid vendor inventory as the Classic+ baseline
-- [ ] RTT visual-store art-direction polish and runtime acceptance
-- [ ] Alternate weapon set / weapon swap
+- [x] Define RTT visual-store art direction: Diablo I-native presentation, no unlicensed/proprietary asset imports
+- [ ] Confirm visual-store presentation and controller interaction on a real Windows runtime
+- [x] Alternate weapon set / weapon swap with versioned RTT persistence
 - [x] Advanced RTT item comparison tooltip
 - [x] Loot filter 2.0 with user-configurable rules/presets
-- [x] Controller-first source/interaction review (runtime acceptance remains)
+- [x] Controller-first source/interaction review
 - [x] Quick inventory/stash transfer review — reuse native Ctrl-click transfer
 - [x] Gold handling QoL review — auto-gold enabled; preserve 5000 stack cap for compatibility
-- [ ] Balance-safe item additions
-- [ ] Full Classic+ runtime regression pass
+- [x] Balance-safe item-content review — preserve seeded generation identity in Classic+ and defer generated item systems to Phase 4
+- [x] Add dedicated Phase 3 runtime acceptance checklist and JSON evidence collector
+- [ ] Full Classic+ Windows/controller/multiplayer/campaign runtime regression pass
 
-**Exit criterion:** the original campaign is fully playable as RTT with modern QoL and no required expanded-campaign/endgame systems.
+**Engineering exit criterion:** all Classic+ data, Lua and engine patches validate; the pinned Windows MSVC build and test-package workflow are green. **Satisfied once the final Phase 3 merge tree passes CI.**
+
+**Runtime exit criterion:** one real Windows run confirms `docs/PHASE3_RUNTIME_ACCEPTANCE.md` and records `phase3-*.json` with `passed: true`. Until then Phase 3 remains manual-runtime-acceptance pending and version stays `0.1.0-dev`.
 
 ## Phase 4 — Itemisation, skills and classes
 
