@@ -31,7 +31,7 @@
  #include "panels/ui_panels.hpp"
 --- a/Source/inv.cpp
 +++ b/Source/inv.cpp
-@@ -1166,4 +1166,34 @@
+@@ -1166,4 +1166,33 @@
  	    && item.isUsable();
  }
  
