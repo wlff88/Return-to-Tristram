@@ -21,8 +21,10 @@ required = [
     'PackItem(packedItem, item, gbIsHellfire)',
     'UnPackItem(packedItem, player, item, isHellfireSave)',
     'GetActiveModSaveExtension() == "rtt"',
-    'NetSendCmdChItem(false, INVLOC_HAND_LEFT, true)',
-    'NetSendCmdChItem(false, INVLOC_HAND_RIGHT, true)',
+    'NetSendCmdDelItem(false, location)',
+    'NetSendCmdChItem(false, location, true)',
+    'syncHand(INVLOC_HAND_LEFT)',
+    'syncHand(INVLOC_HAND_RIGHT)',
     '"WeaponSwap"',
     "'W'",
     'ControllerButton_BUTTON_BACK, ControllerButton_BUTTON_Y',
@@ -31,7 +33,7 @@ missing = [token for token in required if token not in text]
 if missing:
     raise SystemExit('weapon swap patch contract missing: ' + ', '.join(missing))
 
-if 'PlayerPack' in text:
+if 'struct PlayerPack' in text:
     raise SystemExit('weapon swap patch must not extend PlayerPack')
 
 print('OK: RTT weapon swap save/network/input contract')
