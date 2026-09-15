@@ -16,7 +16,7 @@ diff --git a/Source/player.cpp b/Source/player.cpp
 @@ -3006,6 +3006,20 @@ StartNewLvl(Player &player, interface_mode fom, int lvl)
  	}
  }
-
+ 
 +bool RttWarpToLevel(Player &player, uint8_t level)
 +{
 +    // Mirrors the vanilla town-warp entrances in Source/levels/trigs.cpp (which
@@ -66,3 +66,4 @@ diff --git a/test/rtt_phase4_test.cpp b/test/rtt_phase4_test.cpp
 +}
  } // namespace
  } // namespace devilution
+
