@@ -1,0 +1,68 @@
+diff --git a/Source/player.h b/Source/player.h
+--- a/Source/player.h
++++ b/Source/player.h
+@@ -991,6 +991,7 @@ void StripTopGold(Player &player);
+ void SyncPlrKill(Player &player, DeathReason deathReason);
+ void RemovePlrMissiles(const Player &player);
+ void StartNewLvl(Player &player, interface_mode fom, int lvl);
++bool RttWarpToLevel(Player &player, uint8_t level);
+ void RestartTownLvl(Player &player);
+ void StartWarpLvl(Player &player, size_t pidx);
+ void ProcessPlayers();
+
+diff --git a/Source/player.cpp b/Source/player.cpp
+--- a/Source/player.cpp
++++ b/Source/player.cpp
+@@ -3006,6 +3006,20 @@ StartNewLvl(Player &player, interface_mode fom, int lvl)
+ 	}
+ }
+
++bool RttWarpToLevel(Player &player, uint8_t level)
++{
++    // Mirrors the vanilla town-warp entrances in Source/levels/trigs.cpp (which
++    // gate on pTownWarps per dungeon *branch*): RTT waypoints extend that to
++    // per-level granularity using the already-persisted, already-multiplayer-
++    // safe _pLvlVisited[] array instead of adding new save state. Warping is
++    // only offered from town, matching where the vanilla entrances live.
++    if (&player != MyPlayer || level < 1 || level > 16) return false;
++    if (!player.isOnLevel(0)) return false;
++    if (!player._pLvlVisited[level]) return false;
++    StartNewLvl(player, WM_DIABTOWNWARP, level);
++    return true;
++}
++
+ void RestartTownLvl(Player &player)
+ {
+ 	InitLevelChange(player);
+
+diff --git a/test/rtt_phase4_test.cpp b/test/rtt_phase4_test.cpp
+--- a/test/rtt_phase4_test.cpp
++++ b/test/rtt_phase4_test.cpp
+@@ -270,5 +270,27 @@ TEST_F(RttPhase4, SpendNextProgressionPointHotkey)
+     Players[1]._pClass = HeroClass::Sorcerer; Players[1].setCharacterLevel(4);
+     EXPECT_FALSE(RttSpendNextProgressionPoint(Players[1]));
+ }
++TEST_F(RttPhase4, WarpToLevelGating)
++{
++    // A fresh test Player{} starts at plrlevel 0 (town) with every
++    // _pLvlVisited[] entry false, matching a brand-new character.
++    EXPECT_FALSE(RttWarpToLevel(*MyPlayer, 5)); // not visited yet
++    MyPlayer->_pLvlVisited[5] = true;
++    EXPECT_FALSE(RttWarpToLevel(*MyPlayer, 0));  // town itself is not a waypoint destination
++    EXPECT_FALSE(RttWarpToLevel(*MyPlayer, 17)); // beyond Diablo 1's 16 dungeon levels
++    EXPECT_FALSE(RttWarpToLevel(Players[1], 5)); // never warps someone else
++
++    MyPlayer->plrlevel = 3; // simulate standing mid-dungeon, not in town
++    EXPECT_FALSE(RttWarpToLevel(*MyPlayer, 5)); // waypoints are only usable from town
++    MyPlayer->plrlevel = 0;
++
++    // The one combination that would actually succeed (in town, level 1-16,
++    // _pLvlVisited[level] true) is deliberately not exercised here: that path
++    // calls StartNewLvl(), which drives real dungeon generation/level-load --
++    // exactly the kind of heavy engine subsystem this headless contract test
++    // must not depend on (see the InitCursor/objcurs.cel fix earlier in this
++    // file). The four guards above are what gate reaching that call, and are
++    // fully covered.
++}
+ } // namespace
+ } // namespace devilution
