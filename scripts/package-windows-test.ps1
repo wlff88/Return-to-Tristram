@@ -53,15 +53,6 @@ if (-not (Test-Path (Join-Path $PackageDir 'devilutionx.exe'))) {
 }
 
 # IMPORTANT: keep engine binary and engine assets on the same pinned revision.
-# The previous test package downloaded the latest public devilutionx.mpq when the
-# source build did not produce one. That can version-skew a development binary
-# from its Lua/TSV assets (for example assets/lua/inspect.lua).
-#
-# Always ship the exact pinned source asset tree as a loose /assets directory.
-# DevilutionX explicitly supports this directory next to the executable as a
-# runtime fallback. If the build also produced devilutionx.mpq, include it too;
-# because it was generated from the same pinned source it is safe to pair with
-# this binary.
 $LooseAssetsDir = Join-Path $PackageDir 'assets'
 New-Item -ItemType Directory -Force -Path $LooseAssetsDir | Out-Null
 Copy-Item (Join-Path $EngineAssetsDir '*') $LooseAssetsDir -Recurse -Force
@@ -85,23 +76,26 @@ if ($null -ne $ExistingAssets) {
     Copy-Item $ExistingAssets.FullName $AssetsPath -Force
     $AssetsMode = "pinned-loose-assets + build-generated devilutionx.mpq:$($ExistingAssets.FullName)"
 } else {
-    # Deliberately do NOT download releases/latest/devilutionx.mpq here. The
-    # current RTT engine is pinned to a development commit and must use assets
-    # from that exact same commit.
     $AssetsMode = 'pinned-loose-assets (no external devilutionx.mpq fallback)'
 }
 
-# Stage the exact RTT runtime package. Start with the pinned engine asset tree as
-# a complete loose runtime overlay, then place RTT files on top. This gives the
-# active RTT mod exact-version Lua/TSV data while preserving RTT overrides.
+$ConfigDir = Join-Path $PackageDir 'config'
+$SaveDir = Join-Path $PackageDir 'saves'
+New-Item -ItemType Directory -Force -Path $ConfigDir, $SaveDir | Out-Null
+
+# --save-dir sets DevilutionX PrefPath. Loose mods are discovered under
+# <PrefPath>/mods/<name>, so the active RTT runtime MUST live below .\saves\mods
+# for this isolated test package. A root-level /mods directory is not sufficient.
 & (Join-Path $PSScriptRoot 'stage-mod.ps1')
 if ($LASTEXITCODE -ne 0) {
     throw 'RTT mod staging failed.'
 }
 $StagedMod = Join-Path $RepoRoot 'out/mods/return-to-tristram'
-$RuntimeModsDir = Join-Path $PackageDir 'mods'
+$RuntimeModsDir = Join-Path $SaveDir 'mods'
 $RuntimeRttModDir = Join-Path $RuntimeModsDir 'return-to-tristram'
 New-Item -ItemType Directory -Force -Path $RuntimeRttModDir | Out-Null
+
+# Seed the active mod with exact pinned engine logic assets, then overlay RTT.
 Copy-Item (Join-Path $EngineAssetsDir '*') $RuntimeRttModDir -Recurse -Force
 Copy-Item (Join-Path $StagedMod '*') $RuntimeRttModDir -Recurse -Force
 
@@ -109,18 +103,21 @@ $RequiredModAssets = @(
     'manifest.ini',
     'lua/inspect.lua',
     'lua/devilutionx/events.lua',
-    'lua/mods/rtt/init.lua'
+    'lua/mods/rtt/init.lua',
+    'txtdata/classes/warrior/starting_loadout.tsv'
 )
 foreach ($relative in $RequiredModAssets) {
     $path = Join-Path $RuntimeRttModDir $relative
     if (-not (Test-Path $path)) {
-        throw "RTT runtime overlay missing required file: mods/return-to-tristram/$relative"
+        throw "RTT active runtime missing required file: saves/mods/return-to-tristram/$relative"
     }
 }
 
-$ConfigDir = Join-Path $PackageDir 'config'
-$SaveDir = Join-Path $PackageDir 'saves'
-New-Item -ItemType Directory -Force -Path $ConfigDir, $SaveDir | Out-Null
+$WarriorLoadout = Join-Path $RuntimeRttModDir 'txtdata/classes/warrior/starting_loadout.tsv'
+if (-not (Select-String -Path $WarriorLoadout -Pattern '^gold\t200$' -Quiet)) {
+    throw 'Active RTT Warrior starting_loadout.tsv does not contain gold=200.'
+}
+
 @"
 [Mods]
 return-to-tristram=true
@@ -171,12 +168,17 @@ URUCHOMIENIE
 3. Opcjonalnie podlacz kontroler Xbox / kompatybilny XInput.
 4. Uruchom START_RTT_TEST.bat.
 
+WAZNE
+Aktywny mod RTT znajduje sie w .\saves\mods\return-to-tristram, poniewaz
+--save-dir .\saves ustawia ten katalog jako DevilutionX PrefPath.
+Nowa postac Warrior/Rogue/Sorcerer powinna zaczynac z 200 gold.
+
 UWAGA O ASSETACH
 Ta paczka zawiera dokladny loose asset tree z przypietego commita DevilutionX.
-Nie korzysta z losowego/latest asset bundle jako zamiennika dla builda developerskiego.
-Dzieki temu binarka i Lua/TSV/UI assets sa z tej samej rewizji.
+Binarka i Lua/TSV/UI assets sa z tej samej rewizji.
 
 CO SPRAWDZIC W PHASE 1
+- Nowa postac zaczyna z 200 gold (potwierdzenie, ze RTT naprawde sie zaladowal).
 - Return to Tristram jest aktywny jako mod.
 - Nowa gra dochodzi do Tristram.
 - Da sie wejsc do Cathedral Level 1.
@@ -186,9 +188,6 @@ CO SPRAWDZIC W PHASE 1
 - Zapis gry powstaje w izolowanym katalogu .\saves i daje sie ponownie wczytac.
 - Kontroler dziala w menu, ruchu, walce i ekwipunku.
 - Na koniec wykonaj podstawowy test multiplayer na dwoch klientach.
-
-Paczka uzywa wlasnych katalogow .\config i .\saves, wiec nie powinna zmieniac
-Twojej standardowej konfiguracji ani save'ow DevilutionX.
 
 Jesli Windows SmartScreen ostrzeze o niepodpisanym buildzie developerskim,
 to oczekiwane dla tej paczki CI. Kod zrodlowy odpowiada commitowi zapisanemu
@@ -210,6 +209,8 @@ devilutionx.exe SHA256: $ExeHash
 Pinned assets mode: $AssetsMode
 Pinned ASSETS_VERSION: $AssetsVersion
 assets/lua/inspect.lua SHA256: $InspectHash
+Active RTT mod path: saves/mods/return-to-tristram
+Active RTT Warrior starting gold verified: 200
 Proprietary Diablo game data included: NO
 "@
 $BuildInfo | Set-Content -Path (Join-Path $PackageDir 'BUILD_INFO.txt') -Encoding UTF8

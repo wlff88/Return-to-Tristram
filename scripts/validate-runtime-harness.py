@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "runtime-acceptance.ps1"
 DOC = ROOT / "docs" / "PHASE1_RUNTIME_ACCEPTANCE.md"
 MANIFEST = ROOT / "packaging" / "mod" / "manifest.ini"
+MOD_ENTRY = ROOT / "packaging" / "mod" / "lua" / "mods" / "return-to-tristram" / "init.lua"
 
 
 def fail(message: str) -> None:
@@ -16,9 +17,13 @@ def fail(message: str) -> None:
     raise SystemExit(1)
 
 
-for path in (SCRIPT, DOC, MANIFEST):
+for path in (SCRIPT, DOC, MANIFEST, MOD_ENTRY):
     if not path.is_file():
         fail(f"required Phase 1 runtime acceptance file is missing: {path.relative_to(ROOT)}")
+
+entry = MOD_ENTRY.read_text(encoding="utf-8")
+if 'require("mods.rtt.init")' not in entry:
+    fail("DevilutionX loose-mod entry point must delegate to mods.rtt.init")
 
 script = SCRIPT.read_text(encoding="utf-8")
 required_script_tokens = (
