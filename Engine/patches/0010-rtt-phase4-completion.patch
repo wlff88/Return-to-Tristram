@@ -791,7 +791,7 @@ diff --git a/test/rtt_phase4_test.cpp b/test/rtt_phase4_test.cpp
 new file mode 100644
 --- /dev/null
 +++ b/test/rtt_phase4_test.cpp
-@@ -0,0 +1,182 @@
+@@ -0,0 +1,223 @@
 +#include <gtest/gtest.h>
 +#include <array>
 +#include <cstring>
@@ -801,12 +801,14 @@ new file mode 100644
 +#include "multi.h"
 +#include "items.h"
 +#include "mods/mod_identity.h"
++#include "msg.h"
 +#include "pack.h"
 +#include "player.h"
 +#include "spells.h"
 +#include "storm/storm_net.hpp"
 +#include "tables/monstdat.h"
 +#include "tables/playerdat.hpp"
++#include "utils/endian_swap.hpp"
 +
 +namespace devilution {
 +namespace {
@@ -971,6 +973,45 @@ new file mode 100644
 +    ApplyPlrDamage(DamageType::Physical,p,10); const int baseline=10000-p._pMana;
 +    ASSERT_TRUE(RttChooseProgression(p,1,1,false)); p._pMana=p._pManaBase=10000;
 +    ApplyPlrDamage(DamageType::Physical,p,10); EXPECT_LT(10000-p._pMana,baseline);
++}
++TEST_F(RttPhase4, NetworkChoiceAppliesToSenderNotSelf)
++{
++    // Simulate a CMD_RTT_CHOICE arriving over the network from player 1, as
++    // ParseCmd()/OnRttChoice() would see it on a real client (RttChooseProgression's
++    // own broadcast=true path only ever sends this on MyPlayer's behalf, so the
++    // receive side is what actually attributes a choice to the right player).
++    // Level 2 is the first level that has earned an unspent point (Earned(1)==0,
++    // Earned(2)==1), so use it rather than level 1 to avoid an unrelated "no
++    // points available" failure masking what this test actually checks.
++    Players[1]._pClass = HeroClass::Sorcerer; Players[1].setCharacterLevel(2);
++    EnsureRttNecromancerProgression(Players[1]);
++    MyPlayer->setCharacterLevel(2); EnsureRttNecromancerProgression(*MyPlayer);
++    TCmdParam2 cmd {}; cmd.bCmd = CMD_RTT_CHOICE; cmd.wParam1 = Swap16LE(0); cmd.wParam2 = Swap16LE(1);
++    EXPECT_EQ(ParseCmd(1, reinterpret_cast<const TCmd *>(&cmd), sizeof(cmd)), sizeof(cmd));
++    EXPECT_EQ(Players[1].rttProgression[5], 1);
++    EXPECT_EQ(MyPlayer->rttProgression[5], 0);
++
++    // A command nominally "from" myself must be echo-suppressed: OnRttChoice()
++    // only ever applies to players other than MyPlayer.
++    const auto beforeSelfEcho = MyPlayer->rttProgression;
++    EXPECT_EQ(ParseCmd(MyPlayerId, reinterpret_cast<const TCmd *>(&cmd), sizeof(cmd)), sizeof(cmd));
++    EXPECT_EQ(MyPlayer->rttProgression, beforeSelfEcho);
++
++    // The public API still refuses to broadcast a choice on someone else's behalf.
++    EXPECT_FALSE(RttChooseProgression(Players[1], 1, 1, /*broadcast=*/true));
++
++    // MyPlayer's own broadcast=true path must not crash. Earlier tests in this
++    // binary share the same loopback provider and may have left unrelated
++    // messages queued (e.g. NormalXpMultiplierOnly's CMD_PLRLEVEL sends), so
++    // drain those first rather than assume ours is the only one queued.
++    uint8_t sender = 0; void *data = nullptr; size_t size = 0;
++    while (SNetReceiveMessage(&sender, &data, &size)) {
++    }
++    ASSERT_TRUE(RttChooseProgression(*MyPlayer, 0, 1, /*broadcast=*/true));
++    ASSERT_TRUE(SNetReceiveMessage(&sender, &data, &size));
++    EXPECT_EQ(sender, MyPlayerId);
++    ASSERT_EQ(size, sizeof(TCmdParam2) + sizeof(TPktHdr));
++    EXPECT_FALSE(SNetReceiveMessage(&sender, &data, &size));
 +}
 +} // namespace
 +} // namespace devilution
