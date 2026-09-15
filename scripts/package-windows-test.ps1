@@ -120,7 +120,7 @@ if (-not (Select-String -Path $WarriorLoadout -Pattern '^gold\t200$' -Quiet)) {
 
 @"
 [Mods]
-return-to-tristram=true
+return-to-tristram=1
 "@ | Set-Content -Path (Join-Path $ConfigDir 'diablo.ini') -Encoding ASCII
 
 $Launcher = @'
