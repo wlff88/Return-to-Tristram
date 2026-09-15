@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 import pathlib
 import subprocess
 import sys
@@ -26,12 +25,10 @@ def run_git(
     args: list[str],
     *,
     cwd: pathlib.Path = ENGINE,
-    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["git", *args],
         cwd=cwd,
-        env=env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -44,38 +41,41 @@ def apply_args(*extra: str) -> list[str]:
 
 
 def check_patch_series(patches: list[pathlib.Path]) -> int:
-    """Validate patches in their real application order without touching the worktree."""
+    """Validate patches in real application order without mutating the engine checkout."""
     with tempfile.TemporaryDirectory(prefix="rtt-patch-check-") as temp_dir:
-        index_path = pathlib.Path(temp_dir) / "index"
-        env = os.environ.copy()
-        env["GIT_INDEX_FILE"] = str(index_path)
+        worktree = pathlib.Path(temp_dir) / "engine"
+        added = run_git(["worktree", "add", "--detach", str(worktree), "HEAD"])
+        if added.returncode != 0:
+            print("ERROR: unable to create temporary DevilutionX worktree for patch validation", file=sys.stderr)
+            print(added.stderr, file=sys.stderr)
+            return added.returncode
 
-        read_tree = run_git(["read-tree", "HEAD"], env=env)
-        if read_tree.returncode != 0:
-            print("ERROR: unable to create temporary Git index for patch validation", file=sys.stderr)
-            print(read_tree.stderr, file=sys.stderr)
-            return read_tree.returncode
+        try:
+            for patch in patches:
+                rel = patch.relative_to(ROOT)
+                forward = run_git(apply_args("--check", str(patch)), cwd=worktree)
+                if forward.returncode == 0:
+                    applied = run_git(apply_args(str(patch)), cwd=worktree)
+                    if applied.returncode != 0:
+                        print(f"ERROR: {rel} passed --check but failed while applying validation series", file=sys.stderr)
+                        print(applied.stderr, file=sys.stderr)
+                        return applied.returncode
+                    print(f"OK: {rel} applies cleanly in series")
+                    continue
 
-        for patch in patches:
-            rel = patch.relative_to(ROOT)
-            forward = run_git(apply_args("--cached", "--check", str(patch)), env=env)
-            if forward.returncode == 0:
-                applied = run_git(apply_args("--cached", str(patch)), env=env)
-                if applied.returncode != 0:
-                    print(f"ERROR: {rel} passed --check but failed while staging the validation series", file=sys.stderr)
-                    print(applied.stderr, file=sys.stderr)
-                    return applied.returncode
-                print(f"OK: {rel} applies cleanly in series")
-                continue
+                reverse = run_git(apply_args("--reverse", "--check", str(patch)), cwd=worktree)
+                if reverse.returncode == 0:
+                    print(f"OK: {rel} is already applied in series")
+                    continue
 
-            reverse = run_git(apply_args("--cached", "--reverse", "--check", str(patch)), env=env)
-            if reverse.returncode == 0:
-                print(f"OK: {rel} is already applied in series")
-                continue
-
-            print(f"ERROR: {rel} neither applies after previous RTT patches nor appears to be already applied", file=sys.stderr)
-            print(forward.stderr, file=sys.stderr)
-            return 3
+                print(f"ERROR: {rel} neither applies after previous RTT patches nor appears to be already applied", file=sys.stderr)
+                print(forward.stderr, file=sys.stderr)
+                return 3
+        finally:
+            removed = run_git(["worktree", "remove", "--force", str(worktree)])
+            if removed.returncode != 0:
+                print("WARNING: temporary patch-validation worktree could not be removed cleanly", file=sys.stderr)
+                print(removed.stderr, file=sys.stderr)
 
     return 0
 
