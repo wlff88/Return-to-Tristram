@@ -1,0 +1,9 @@
+diff --git a/Source/options.cpp b/Source/options.cpp
+--- a/Source/options.cpp
++++ b/Source/options.cpp
+@@ -879,7 +879,7 @@ GameplayOptions::GameplayOptions()
+-    , storeUi("Store UI", OptionEntryFlags::None, N_("Store UI"), N_("User interface for stores"), StoreUi::Text,
++    , storeUi("Store UI", OptionEntryFlags::None, N_("Store UI"), N_("User interface for stores"), StoreUi::VisualGrid,
+           {
+               { StoreUi::Text, N_("Text-only list") },
+               { StoreUi::ListWithItemGraphics, N_("List with item graphics") },
