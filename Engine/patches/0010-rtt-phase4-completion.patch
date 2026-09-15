@@ -791,7 +791,7 @@ diff --git a/test/rtt_phase4_test.cpp b/test/rtt_phase4_test.cpp
 new file mode 100644
 --- /dev/null
 +++ b/test/rtt_phase4_test.cpp
-@@ -0,0 +1,223 @@
+@@ -0,0 +1,257 @@
 +#include <gtest/gtest.h>
 +#include <array>
 +#include <cstring>
@@ -1012,6 +1012,40 @@ new file mode 100644
 +    EXPECT_EQ(sender, MyPlayerId);
 +    ASSERT_EQ(size, sizeof(TCmdParam2) + sizeof(TPktHdr));
 +    EXPECT_FALSE(SNetReceiveMessage(&sender, &data, &size));
++}
++TEST_F(RttPhase4, RareRoundTripAcrossAllEquipmentTypes)
++{
++    // MaybeGenerateRttItemMetadata()/BuildRttRareCodes() are type-agnostic
++    // (they branch on isWeapon() vs not), so Rare generation and reconstruction
++    // should work identically for every equipment ItemType, not just the
++    // Sword/Staff/Shield/LightArmor samples the other tests use.
++    for (auto type : {ItemType::Axe, ItemType::Bow, ItemType::Mace}) {
++        RoundTrip(Make(type, 1, {1, 13, 7, 10}));
++    }
++    for (auto type : {ItemType::Helm, ItemType::MediumArmor, ItemType::HeavyArmor}) {
++        RoundTrip(Make(type, 1, {4, 13, 7, 10}));
++    }
++    for (auto type : {ItemType::Ring, ItemType::Amulet}) {
++        RoundTrip(Make(type, 1, {0, 13, 7, 10}));
++    }
++}
++TEST_F(RttPhase4, JewelryNeverGetsArmorClassAffix)
++{
++    // IsRttAffixCompatible() only allows codes 4-6 (the armor-class family) on
++    // isArmor()/isShield()/isHelm() items. Rings/amulets are equipment but
++    // none of those, so a fresh Rare roll must always leave slot 0 (bits 5-10)
++    // empty rather than silently assign an incompatible affix.
++    bool sawRare = false;
++    for (auto type : {ItemType::Ring, ItemType::Amulet}) {
++        for (uint32_t seed = 1; seed < 3000; ++seed) {
++            Item a {}; SetupAllItems(*MyPlayer, a, Base(type), seed, 20, 1, false, false);
++            if ((a.dwBuff & 0x80000000U) == 0) continue;
++            if (((a.dwBuff >> 29) & 3) != 1) continue; // Rare only.
++            sawRare = true;
++            EXPECT_EQ((a.dwBuff >> 5) & 63, 0u) << "jewelry rolled an AC-family affix in slot 0";
++        }
++    }
++    EXPECT_TRUE(sawRare);
 +}
 +} // namespace
 +} // namespace devilution
