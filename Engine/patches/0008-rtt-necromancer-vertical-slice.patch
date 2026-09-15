@@ -1,0 +1,108 @@
+--- a/Source/player.h
++++ b/Source/player.h
+@@ -24,6 +24,7 @@
+ #include "levels/dun_tile.hpp"
+ #include "levels/gendung.h"
++#include "mods/mod_identity.h"
+ #include "multi.h"
+ #include "tables/playerdat.hpp"
+@@ -568,6 +569,8 @@ struct Player {
+ 	[[nodiscard]] std::string_view getClassName() const
+ 	{
++		if (_pClass == HeroClass::Sorcerer && GetActiveModSaveExtension() == "rtt")
++			return _("Necromancer");
+ 		return _(getPlayerData().className);
+ 	}
+@@ -1026,6 +1029,7 @@
+ #endif
+ void AddPlrMonstExper(int lvl, unsigned int exp, char pmask);
++void EnsureRttNecromancerProgression(Player &player);
+ void ApplyPlrDamage(DamageType damageType, Player &player, int dam, int minHP = 0, int frac = 0, DeathReason deathReason = DeathReason::MonsterOrTrap);
+--- a/Source/player.cpp
++++ b/Source/player.cpp
+@@ -2365,6 +2365,7 @@ void CreatePlayer(Player &player, HeroClass c)
+ 	InitDungMsgs(player);
+ 	CreatePlrItems(player);
++	EnsureRttNecromancerProgression(player);
+ 	SetRndSeed(0);
+ }
+@@ -2379,6 +2380,29 @@ int CalcStatDiff(Player &player)
+ 	return diff;
+ }
+ 
++void EnsureRttNecromancerProgression(Player &player)
++{
++	if (GetActiveModSaveExtension() != "rtt" || player._pClass != HeroClass::Sorcerer)
++		return;
++
++	const auto unlock = [&player](SpellID spell, uint8_t minimumLevel) {
++		if (player.getCharacterLevel() < minimumLevel)
++			return;
++		const auto index = static_cast<size_t>(spell);
++		player._pMemSpells |= GetSpellBitmask(spell);
++		player._pSplLvl[index] = std::max<uint8_t>(player._pSplLvl[index], 1);
++	};
++
++	unlock(SpellID::HolyBolt, 1);   // Bone Spike
++	unlock(SpellID::ManaShield, 4); // Bone Armor
++	unlock(SpellID::BloodStar, 8);  // Grave Pact
++
++	// Ossuary Mastery: the vertical slice grants a stable extra rank to the
++	// primary bone skill and armor once level 15 is reached.
++	if (player.getCharacterLevel() >= 15) {
++		player._pSplLvl[static_cast<size_t>(SpellID::HolyBolt)] = std::max<uint8_t>(player._pSplLvl[static_cast<size_t>(SpellID::HolyBolt)], 2);
++		player._pSplLvl[static_cast<size_t>(SpellID::ManaShield)] = std::max<uint8_t>(player._pSplLvl[static_cast<size_t>(SpellID::ManaShield)], 2);
++	}
++}
++
+ void NextPlrLevel(Player &player)
+ {
+@@ -2421,6 +2445,7 @@ void NextPlrLevel(Player &player)
+ 	CalcPlrInv(player, true);
++	EnsureRttNecromancerProgression(player);
+ 	PlaySFX(SfxID::ItemArmor);
+@@ -2474,8 +2499,20 @@ void AddPlrMonstExper(int lvl, unsigned exp, char pmask)
+ 	if (totplrs != 0) {
+ 		const unsigned e = exp / totplrs;
+-		if ((pmask & (1 << MyPlayerId)) != 0)
++		if ((pmask & (1 << MyPlayerId)) != 0) {
+ 			MyPlayer->addExperience(e, lvl);
++			EnsureRttNecromancerProgression(*MyPlayer);
++			// Soul Siphon notable: from level 6 onward, kills restore 2% of
++			// maximum mana. This runs only for the local player credited by pmask.
++			if (GetActiveModSaveExtension() == "rtt" && MyPlayer->_pClass == HeroClass::Sorcerer && MyPlayer->getCharacterLevel() >= 6) {
++				const int restore = std::max(MyPlayer->_pMaxMana / 50, 1);
++				const int actual = std::min(restore, MyPlayer->_pMaxMana - MyPlayer->_pMana);
++				MyPlayer->_pMana += actual;
++				MyPlayer->_pManaBase = std::min(MyPlayer->_pManaBase + actual, MyPlayer->_pMaxManaBase);
++				if (actual > 0)
++					RedrawComponent(PanelDrawComponent::Mana);
++			}
++		}
+ 	}
+ }
+@@ -2488,6 +2525,8 @@ void InitPlayer(Player &player, bool firstTime)
+ 		player.wReflections = 0;
+ 	}
++
++	EnsureRttNecromancerProgression(player);
+ 
+ 	player.lightId = NO_LIGHT;
+--- a/Source/DiabloUI/hero/selhero.cpp
++++ b/Source/DiabloUI/hero/selhero.cpp
+@@ -26,6 +26,7 @@
+ #include "DiabloUI/ui_item.h"
+ #include "DiabloUI/ui_render.hpp"
++#include "mods/mod_identity.h"
+ #include "options.h"
+ #include "player.h"
+@@ -169,7 +170,10 @@ void SelheroListSelect(size_t value)
+ 			}
+ 
+ 			const PlayerData &playerData = GetPlayerDataForClass(heroClass);
+-			vecSelHeroDlgItems.push_back(std::make_unique<UiListItem>(_(playerData.className), static_cast<int>(heroClass)));
++			const std::string_view className = heroClass == HeroClass::Sorcerer && GetActiveModSaveExtension() == "rtt"
++			    ? _("Necromancer")
++			    : _(playerData.className);
++			vecSelHeroDlgItems.push_back(std::make_unique<UiListItem>(className, static_cast<int>(heroClass)));
+ 		}
