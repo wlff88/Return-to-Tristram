@@ -791,7 +791,7 @@ diff --git a/test/rtt_phase4_test.cpp b/test/rtt_phase4_test.cpp
 new file mode 100644
 --- /dev/null
 +++ b/test/rtt_phase4_test.cpp
-@@ -0,0 +1,168 @@
+@@ -0,0 +1,182 @@
 +#include <gtest/gtest.h>
 +#include <array>
 +#include <cstring>
@@ -804,6 +804,7 @@ new file mode 100644
 +#include "pack.h"
 +#include "player.h"
 +#include "spells.h"
++#include "storm/storm_net.hpp"
 +#include "tables/monstdat.h"
 +#include "tables/playerdat.hpp"
 +
@@ -818,6 +819,19 @@ new file mode 100644
 +        gbIsSpawn = false; gbIsHellfire = false; gbIsMultiplayer = false;
 +        ModIdentifier mod {}; mod.name = "rtt"; mod.manifest.saveExtension = "rtt";
 +        ActiveModIdentifiers = { mod };
++        // addExperience() unconditionally routes through NetSendCmdParam1, even
++        // single-player, so bring up the in-memory loopback provider once (as
++        // InitSingle() does for a real game) or that call segfaults on a null
++        // network instance.
++        static const bool networkReady = [] {
++            GameData gameData {};
++            SNetInitializeProvider(SELCONN_LOOPBACK, &gameData);
++            GameData gameInitInfo = sgGameInitInfo;
++            SwapGameDataLE(gameInitInfo);
++            int unused = 0;
++            return SNetCreateGame("local", "local", reinterpret_cast<char *>(&gameInitInfo), sizeof(gameInitInfo), &unused);
++        }();
++        (void)networkReady;
 +        // Reproduce CreatePlayer()'s level/stat setup without CreatePlrItems(),
 +        // which calls InitCursor() and needs the proprietary game MPQ that this
 +        // contract test must run without.
