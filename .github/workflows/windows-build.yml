@@ -215,6 +215,12 @@ jobs:
         shell: pwsh
         run: |
           $test = Resolve-Path 'build/devilutionx-windows-x64/Release/rtt_phase4_test.exe'
+          # DevilutionX resolves unpacked assets relative to the executable's own
+          # directory (SDL_GetBasePath() + "assets/"), but CMake's copy_files()
+          # always stages them at the base build dir, not inside the per-config
+          # Release/Debug subdirectory MSVC uses. Mirror them alongside the test
+          # binary so it can find txtdata/items/itemdat.tsv etc.
+          Copy-Item -Recurse -Force 'build/devilutionx-windows-x64/assets' 'build/devilutionx-windows-x64/Release/assets'
           Push-Location build/devilutionx-windows-x64
           & $test --gtest_output=xml:phase4-results.xml
           if ($LASTEXITCODE -ne 0) { throw 'Phase 4 engine contracts failed' }
