@@ -1,9 +1,10 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "progressionModel": {
     "activeSkillUpgradeChoices": 3,
     "specializationChoice": 1,
-    "passiveKinds": ["minor", "notable", "mastery"]
+    "passiveKinds": ["minor", "notable", "mastery"],
+    "verticalSlicePolicy": "level-gated-default-path-with-persistable-choice-api"
   },
   "entries": [
     {
@@ -15,6 +16,7 @@
       "requiredLevel":1,
       "resource":"mana",
       "baseCost":5,
+      "engineSpell":"HolyBolt",
       "tags":["bone","projectile","magic"],
       "upgrades":["splinter","pierce","execution"],
       "specializations":["ossuary-lance","marrow-burst"]
@@ -28,6 +30,7 @@
       "requiredLevel":4,
       "resource":"mana",
       "baseCost":8,
+      "engineSpell":"ManaShield",
       "tags":["bone","defense","barrier"],
       "upgrades":["hardened","retaliation","renewal"],
       "specializations":["bone-prison","ossuary-shell"]
@@ -41,6 +44,7 @@
       "requiredLevel":8,
       "resource":"mana",
       "baseCost":12,
+      "engineSpell":"BloodStar",
       "tags":["shadow","resource","risk-reward"],
       "upgrades":["blood-price","soul-return","dark-bargain"],
       "specializations":["death-debt","black-covenant"]
@@ -63,7 +67,7 @@
       "kind":"mastery",
       "requiredLevel":15,
       "tags":["bone","mastery"],
-      "effect":{"boneSkillDamagePercent":15,"boneArmorStrengthPercent":15}
+      "effect":{"minimumBoneSpikeRank":2,"minimumBoneArmorRank":2}
     }
   ]
 }
