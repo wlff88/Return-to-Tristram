@@ -44,6 +44,9 @@ jobs:
       - name: Validate weapon swap
         run: python scripts/validate-weapon-swap.py
 
+      - name: Validate Normal XP multiplier
+        run: python scripts/validate-normal-xp.py
+
       - name: Validate Phase 3 engineering completion
         run: python scripts/validate-phase3-complete.py
 
