@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "stableId":"RTT_CLASS_0002",
+      "symbol":"NECROMANCER",
+      "name":"Necromancer",
+      "status":"vertical-slice",
+      "enginePresentationBase":"Sorcerer",
+      "primaryAttribute":"magic",
+      "identity":["bone","shadow","sustain","risk-reward"],
+      "startingSkillId":"RTT_SKILL_0002",
+      "skillIds":["RTT_SKILL_0002","RTT_SKILL_0003","RTT_SKILL_0004","RTT_SKILL_0005","RTT_SKILL_0006"],
+      "startingStatIntent":{"strength":15,"magic":35,"dexterity":20,"vitality":20},
+      "notes":"Phase 4 starts as a logical RTT class overlay so gameplay/save contracts can stabilize before a separate character-selection UI entry and dedicated proprietary-free presentation are added."
+    }
+  ]
+}
