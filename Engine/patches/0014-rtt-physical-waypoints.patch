@@ -56,6 +56,50 @@ diff --git a/Source/objects.cpp b/Source/objects.cpp
  #include "qol/stash.h"
  #include "stores.h"
  #include "tables/objdat.h"
+@@ -322,21 +324,6 @@ void InitRndLocObj5x5(int min, int max, _object_id objtype)
+ 	}
+ }
+ 
+-void ClrAllObjects()
+-{
+-	for (Object &object : Objects) {
+-		object = {};
+-	}
+-	ActiveObjectCount = 0;
+-	for (int i = 0; i < MAXOBJECTS; i++) {
+-		AvailableObjects[i] = i;
+-	}
+-	memset(ActiveObjects, 0, sizeof(ActiveObjects));
+-	trapdir = 0;
+-	trapid = 1;
+-	leverid = 1;
+-}
+-
+ void AddTortures()
+ {
+ 	for (int oy = 0; oy < MAXDUNY; oy++) {
+@@ -3619,6 +3606,21 @@ void UpdateState(Object &object, int frame)
+ 
+ } // namespace
+ 
++void ClrAllObjects()
++{
++	for (Object &object : Objects) {
++		object = {};
++	}
++	ActiveObjectCount = 0;
++	for (int i = 0; i < MAXOBJECTS; i++) {
++		AvailableObjects[i] = i;
++	}
++	memset(ActiveObjects, 0, sizeof(ActiveObjects));
++	trapdir = 0;
++	trapid = 1;
++	leverid = 1;
++}
++
+ unsigned int Object::GetId() const
+ {
+ 	return std::abs(dObject[position.x][position.y]) - 1;
 @@ -3716,6 +3718,14 @@ std::expected<void, std::string> InitObjectGFX()
  		}
  	}
