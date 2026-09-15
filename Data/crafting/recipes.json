@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "currencyModel": "foundation-only",
+  "entries": [
+    {
+      "stableId":"RTT_RECIPE_0002",
+      "symbol":"REFORGE_RARE",
+      "name":"Reforge Rare",
+      "target":"rtt-rare-equipment",
+      "operation":"reroll-all-affixes",
+      "preserve":["baseItem","itemLevel","rarity"],
+      "requiresEngineMutation":true
+    },
+    {
+      "stableId":"RTT_RECIPE_0003",
+      "symbol":"RAISE_AFFIX_TIER",
+      "name":"Raise Affix Tier",
+      "target":"rtt-rare-equipment",
+      "operation":"upgrade-one-affix-tier",
+      "constraints":["selected-affix-has-next-tier","next-tier-min-level-satisfied"],
+      "requiresEngineMutation":true
+    },
+    {
+      "stableId":"RTT_RECIPE_0004",
+      "symbol":"REROLL_AFFIX_SLOT",
+      "name":"Reroll Affix Slot",
+      "target":"rtt-rare-equipment",
+      "operation":"reroll-one-affix-slot",
+      "preserve":["all-other-affix-slots","baseItem","itemLevel","rarity"],
+      "requiresEngineMutation":true
+    }
+  ]
+}
