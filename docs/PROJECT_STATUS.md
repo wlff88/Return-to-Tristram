@@ -62,7 +62,7 @@ Phase 4 started with compatibility boundaries first, then landed a working engin
 
 **Fixed forward after merge (2026-09-15):** the `build` and `contracts` gates on PR #23 were red at merge time and fixed in follow-up commits rather than merged broken: `rtt_phase4_test`'s `SetUp()` called `CreatePlayer()`, which needs the proprietary `objcurs.cel` game asset unavailable (and undesirable) in CI — replaced with a manual, cursor-free reproduction of the same stat/level setup. `addExperience()` unconditionally routes through `NetSendCmdParam1`, even single-player, and segfaulted on a null network provider — fixed by bootstrapping the in-memory loopback provider once, mirroring `InitSingle()`. The Windows job resolved unpacked test assets (`txtdata/items/itemdat.tsv`) from the wrong directory, because DevilutionX looks them up relative to the executable's own folder (`SDL_GetBasePath()+"assets/"`) while CMake's `copy_files()` stages them at the plain build directory, not the per-config `Release/` subdirectory MSVC uses — fixed by mirroring the assets alongside the test binary in the workflow.
 
-**Not yet done:** nobody has manually played a Necromancer through the original campaign on a real Windows build using this itemisation/progression stack, and multiplayer network **broadcast** of a progression choice (as opposed to metadata reconstruction, which is tested) has no host/client test yet. Both remain open before Phase 4's runtime exit criterion is met.
+**Not yet done:** nobody has manually played a Necromancer through the original campaign on a real Windows build using this itemisation/progression stack. That remains open before Phase 4's runtime exit criterion is met. (Multiplayer network broadcast of a progression choice now has a host/client contract test — `RttPhase4.NetworkChoiceAppliesToSenderNotSelf`, [PR #25](https://github.com/wlff88/Return-to-Tristram/pull/25).)
 
 See `docs/PHASE4_ITEMISATION_SKILLS_CLASSES.md` for the serialization and progression contract.
 
@@ -80,9 +80,8 @@ The development version therefore remains `0.1.0-dev`. Promotion to the first Cl
 
 1. keep Phase 1/Phase 3 real-PC acceptance as a deferred release gate;
 2. get real Windows/controller hands on a Necromancer save and play it through the original campaign (Tristram -> Diablo) to close Phase 4's runtime exit criterion;
-3. add a host/client test for `RttChooseProgression`'s network broadcast path (item metadata network reconstruction is already covered; the progression-choice broadcast itself is not);
-4. extend the Rare engine from the current single-item-type prototypes (Sword/Staff/Shield/LightArmor) to the full base-item catalogue;
-5. add a player-facing way to call `RttChooseProgression()` — it exists and is CI-tested, but nothing calls it outside the test yet (no menu/hotkey UI), so a real player has no way to spend a Necromancer upgrade point;
-6. begin Phase 5 (Resurrected campaign) planning once the above close out Phase 4.
+3. extend the Rare engine from the current single-item-type prototypes (Sword/Staff/Shield/LightArmor) to the full base-item catalogue;
+4. add a player-facing way to call `RttChooseProgression()` — it exists and is CI-tested, but nothing calls it outside the test yet (no menu/hotkey UI), so a real player has no way to spend a Necromancer upgrade point;
+5. begin Phase 5 (Resurrected campaign) planning once the above close out Phase 4.
 
 See `docs/PHASE2_MOD_FRAMEWORK.md`, `docs/PHASE3_CLASSIC_PLUS.md`, `docs/PHASE3_RUNTIME_ACCEPTANCE.md`, `docs/PHASE3_WEAPON_SWAP.md`, `docs/PHASE4_ITEMISATION_SKILLS_CLASSES.md`, `docs/MULTIPLAYER_COMPATIBILITY.md` and `docs/ROADMAP.md`.
