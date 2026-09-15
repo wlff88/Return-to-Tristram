@@ -32,6 +32,9 @@ jobs:
       - name: Validate Phase 2 RTT Mod Framework
         run: python scripts/validate-phase2-framework.py
 
+      - name: Validate Phase 3 Classic+ baseline
+        run: python scripts/validate-classic-plus.py
+
       - name: Generate runtime tables
         run: python scripts/export-mod-data.py --output out/ci-mod
 
