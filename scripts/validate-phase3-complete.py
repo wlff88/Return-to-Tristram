@@ -111,7 +111,7 @@ for token in [
     if token not in weapon:
         raise SystemExit(f'Weapon swap final patch missing: {token}')
 
-if 'PlayerPack Rtt' in weapon or 'RttAlternateWeaponSet' in weapon.split('struct PlayerPack')[-1] if 'struct PlayerPack' in weapon else False:
+if 'struct PlayerPack' in weapon or 'PlayerPack Rtt' in weapon:
     raise SystemExit('Weapon swap must not extend PlayerPack')
 
 print('OK: Phase 3 Classic+ engineering-completion contract')
