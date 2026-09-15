@@ -1,0 +1,109 @@
+diff --git a/Source/player.h b/Source/player.h
+--- a/Source/player.h
++++ b/Source/player.h
+@@ -971,6 +971,7 @@ void NextPlrLevel(Player &player);
+ void AddPlrMonstExper(int lvl, unsigned int exp, char pmask);
+ void EnsureRttNecromancerProgression(Player &player);
+ bool RttChooseProgression(Player &player, unsigned slot, unsigned choice, bool broadcast = true);
++bool RttSpendNextProgressionPoint(Player &player);
+ void ApplyPlrDamage(DamageType damageType, Player &player, int dam, int minHP = 0, int frac = 0, DeathReason deathReason = DeathReason::MonsterOrTrap);
+ void InitPlayer(Player &player, bool FirstTime);
+ void InitMultiView();
+
+diff --git a/Source/player.cpp b/Source/player.cpp
+--- a/Source/player.cpp
++++ b/Source/player.cpp
+@@ -48,6 +48,7 @@
+ #include "objects.h"
+ #include "options.h"
+ #include "player.h"
++#include "plrmsg.h"
+ #include "qol/autopickup.h"
+ #include "qol/stash.h"
+ #include "spells.h"
+@@ -2409,6 +2410,24 @@ bool RttChooseProgression(Player &player, unsigned slot, unsigned choice, bool b
+     return true;
+ }
+
++bool RttSpendNextProgressionPoint(Player &player)
++{
++    // There is currently only one implemented choice per slot (rtt::Choose()
++    // only accepts choice == 1), so "pick a slot" reduces to "spend on the
++    // lowest-numbered slot that is unlocked, unspent, and affordable" -- there
++    // is no meaningful alternative to present in a menu yet.
++    if (&player != MyPlayer)
++        return false;
++    static const std::array<const char *, 4> SlotNames { N_("Bone Spike"), N_("Bone Armor"), N_("Grave Pact"), N_("Ossuary Mastery") };
++    for (unsigned slot = 0; slot < SlotNames.size(); ++slot) {
++        if (RttChooseProgression(player, slot, 1, true)) {
++            EventPlrMsg(FormatRuntime(_("RTT: {:s} upgraded."), _(SlotNames[slot])), UiFlags::ColorWhite);
++            return true;
++        }
++    }
++    return false;
++}
++
+ void NextPlrLevel(Player &player)
+ {
+ 	player.setCharacterLevel(player.getCharacterLevel() + 1);
+
+diff --git a/Source/diablo.cpp b/Source/diablo.cpp
+--- a/Source/diablo.cpp
++++ b/Source/diablo.cpp
+@@ -2141,6 +2141,14 @@ void InitKeymapActions()
+ 	    },
+ 	    nullptr,
+ 	    [] { return CanPlayerTakeAction() && !IsPlayerInStore(); });
++	options.Keymapper.AddAction(
++	    "RttSpendProgression",
++	    N_("RTT Spend Necromancer upgrade point"),
++	    N_("Spend an available Necromancer progression point on the next unlocked upgrade."),
++	    SDLK_F4,
++	    [] { RttSpendNextProgressionPoint(*MyPlayer); },
++	    nullptr,
++	    [] { return CanPlayerTakeAction(); });
+ 	options.Keymapper.AddAction(
+ 	    "RttReforgeRare",
+ 	    N_("RTT Reforge held Rare"),
+@@ -2386,6 +2394,14 @@ void InitPadmapActions()
+ 	    },
+ 	    nullptr,
+ 	    []() { return CanPlayerTakeAction() && !InGameMenu() && !IsPlayerInStore(); });
++	options.Padmapper.AddAction(
++	    "RttSpendProgression",
++	    N_("RTT Spend Necromancer upgrade point"),
++	    N_("Spend an available Necromancer progression point on the next unlocked upgrade."),
++	    ControllerButton_NONE,
++	    [] { RttSpendNextProgressionPoint(*MyPlayer); },
++	    nullptr,
++	    []() { return CanPlayerTakeAction() && !InGameMenu(); });
+ 	options.Padmapper.AddAction(
+ 	    "RttReforgeRare",
+ 	    N_("RTT Reforge held Rare"),
+
+diff --git a/test/rtt_phase4_test.cpp b/test/rtt_phase4_test.cpp
+--- a/test/rtt_phase4_test.cpp
++++ b/test/rtt_phase4_test.cpp
+@@ -253,5 +253,22 @@ TEST_F(RttPhase4, JewelryNeverGetsArmorClassAffix)
+     }
+     EXPECT_TRUE(sawRare);
+ }
++TEST_F(RttPhase4, SpendNextProgressionPointHotkey)
++{
++    // Earned(1)==0 (see rtt_progression.h), so nothing is spendable at level 1;
++    // advance to level 2 first, matching NecromancerCreateUnlockSaveChoices.
++    MyPlayer->setCharacterLevel(2); EnsureRttNecromancerProgression(*MyPlayer);
++    ASSERT_TRUE(RttSpendNextProgressionPoint(*MyPlayer));
++    EXPECT_EQ(MyPlayer->rttProgression[5], 1); // Bone Spike (slot 0) chosen first.
++    EXPECT_FALSE(RttSpendNextProgressionPoint(*MyPlayer)); // No points left until the next gate.
++
++    MyPlayer->setCharacterLevel(4); EnsureRttNecromancerProgression(*MyPlayer);
++    ASSERT_TRUE(RttSpendNextProgressionPoint(*MyPlayer));
++    EXPECT_EQ(MyPlayer->rttProgression[6], 1); // Bone Armor (slot 1) chosen next, not re-picking slot 0.
++
++    // Never spends on someone else's behalf, matching RttChooseProgression's own guard.
++    Players[1]._pClass = HeroClass::Sorcerer; Players[1].setCharacterLevel(4);
++    EXPECT_FALSE(RttSpendNextProgressionPoint(Players[1]));
++}
+ } // namespace
+ } // namespace devilution
