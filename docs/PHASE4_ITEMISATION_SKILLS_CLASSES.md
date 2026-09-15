@@ -91,11 +91,13 @@ Canonical prototype content:
 - Gravewhisper — Boneweave Robe unique;
 - Ossuary Regalia — first set-framework definition.
 
-Crafting contracts are defined before mutation is enabled:
+Crafting contracts, all under the `blacksmith` system (`Data/crafting/recipes.json`'s `systems.values` also reserves `alchemy`, `runes` and `corruption` for later — empty today, since adding a recipe there means designing a new resource economy or mechanic, not wiring up an existing pattern):
 
-- Reforge Rare;
-- Raise Affix Tier;
-- Reroll Affix Slot.
+- Reforge Rare (blacksmith);
+- Raise Affix Tier (blacksmith);
+- Reroll Affix Slot (blacksmith).
+
+All three currently spend only inventory gold (`currencyModel: "inventory-gold"`). Alchemy/Runes/Corruption recipes would need that decided explicitly: new drop-based materials, or stay gold-gated to keep the "easy to understand, hard to optimize" philosophy.
 
 Crafting must reconstruct the item from its stable base and metadata before applying a new metadata word. It must never incrementally stack an effect on top of already-applied derived stats.
 
