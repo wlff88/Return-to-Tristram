@@ -1,5 +1,5 @@
 local M = {
-    CURRENT_VERSION = 1,
+    CURRENT_VERSION = 2,
     MINIMUM_SUPPORTED_VERSION = 1,
 }
 
@@ -13,12 +13,36 @@ function M.registerMigration(fromVersion, toVersion, migration)
     migrations[fromVersion] = { toVersion = toVersion, run = migration }
 end
 
+local function newItemizationState()
+    return {
+        metadata_version = 1,
+        compact_affix_map_version = 1,
+    }
+end
+
+local function newProgressionState()
+    return {
+        class_id = nil,
+        skill_points = 0,
+        skills = {},
+        passives = {},
+    }
+end
+
+M.registerMigration(1, 2, function(document)
+    document.itemization_state = document.itemization_state or newItemizationState()
+    document.progression_state = document.progression_state or newProgressionState()
+    return document
+end)
+
 function M.newState(featureFlags, contentIds)
     return {
         rtt_version = M.CURRENT_VERSION,
         feature_flags = featureFlags or {},
         content_ids = contentIds or {},
         module_state = {},
+        itemization_state = newItemizationState(),
+        progression_state = newProgressionState(),
     }
 end
 
