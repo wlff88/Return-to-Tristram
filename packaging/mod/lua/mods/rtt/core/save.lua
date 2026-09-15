@@ -24,6 +24,8 @@ local function newProgressionState()
     return {
         class_id = nil,
         skill_points = 0,
+        awarded_through_level = 0,
+        specialization = nil,
         skills = {},
         passives = {},
     }

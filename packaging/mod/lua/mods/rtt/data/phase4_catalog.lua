@@ -20,6 +20,7 @@ M.itemization = {
         [4] = "RTT_AFFIX_0005", [5] = "RTT_AFFIX_0006", [6] = "RTT_AFFIX_0007",
         [7] = "RTT_AFFIX_0008", [8] = "RTT_AFFIX_0009", [9] = "RTT_AFFIX_0010",
         [10] = "RTT_AFFIX_0011", [11] = "RTT_AFFIX_0012", [12] = "RTT_AFFIX_0013",
+        [13] = "RTT_AFFIX_0014", [14] = "RTT_AFFIX_0015", [15] = "RTT_AFFIX_0016",
     },
     prototypeItems = {
         "RTT_ITEM_0002", "RTT_ITEM_0003", "RTT_ITEM_0004", "RTT_ITEM_0005",

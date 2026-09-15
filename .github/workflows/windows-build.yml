@@ -211,6 +211,16 @@ jobs:
           if (-not $exe) { throw "Missing devilutionx.exe in expected build output." }
           Get-Item $exe | Select-Object FullName, Length
 
+      - name: Phase 4 engine contracts
+        shell: pwsh
+        run: |
+          $test = Resolve-Path 'build/devilutionx-windows-x64/Release/rtt_phase4_test.exe'
+          Push-Location build/devilutionx-windows-x64
+          & $test --gtest_output=xml:phase4-results.xml
+          if ($LASTEXITCODE -ne 0) { throw 'Phase 4 engine contracts failed' }
+          Pop-Location
+          python scripts/validate-phase4-complete.py --results build/devilutionx-windows-x64/phase4-results.xml
+
       - name: Package RTT Windows x64 test build
         shell: pwsh
         run: ./scripts/package-windows-test.ps1 -Configuration Release

@@ -7,8 +7,16 @@
       "name": "Ashen Covenant",
       "baseItemId": "RTT_ITEM_0002",
       "requiredLevel": 12,
-      "fixedAffixes": ["RTT_AFFIX_0003", "RTT_AFFIX_0009"],
-      "signature": {"stat":"skillRank", "skillId":"RTT_SKILL_0002", "value":1}
+      "fixedAffixes": [
+        "RTT_AFFIX_0003",
+        "RTT_AFFIX_0009"
+      ],
+      "signature": {
+        "stat": "skillRank",
+        "skillId": "RTT_SKILL_0002",
+        "value": 1
+      },
+      "identityCode": 60
     },
     {
       "stableId": "RTT_UNIQUE_0003",
@@ -16,8 +24,15 @@
       "name": "Boneward",
       "baseItemId": "RTT_ITEM_0004",
       "requiredLevel": 15,
-      "fixedAffixes": ["RTT_AFFIX_0006", "RTT_AFFIX_0012"],
-      "signature": {"stat":"damageReductionPercent", "value":5}
+      "fixedAffixes": [
+        "RTT_AFFIX_0006",
+        "RTT_AFFIX_0012"
+      ],
+      "signature": {
+        "stat": "damageReductionPercent",
+        "value": 5
+      },
+      "identityCode": 61
     },
     {
       "stableId": "RTT_UNIQUE_0004",
@@ -25,8 +40,17 @@
       "name": "Gravewhisper",
       "baseItemId": "RTT_ITEM_0005",
       "requiredLevel": 18,
-      "fixedAffixes": ["RTT_AFFIX_0006", "RTT_AFFIX_0010"],
-      "signature": {"stat":"skillRank", "skillId":"RTT_SKILL_0003", "value":1}
+      "fixedAffixes": [
+        "RTT_AFFIX_0006",
+        "RTT_AFFIX_0010"
+      ],
+      "signature": {
+        "stat": "skillRank",
+        "skillId": "RTT_SKILL_0003",
+        "value": 1
+      },
+      "identityCode": 62,
+      "fixedAffixLevelException": "Fixed T3 fire resist applies at requiredLevel 18; random/crafted T3 still requires item level 20."
     }
   ]
 }

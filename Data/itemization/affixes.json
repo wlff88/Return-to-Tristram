@@ -7,30 +7,310 @@
     "rttMarkerMask": "0x80000000",
     "rarityMask": "0x60000000",
     "rarityShift": 29,
-    "rarities": {"0": "vanilla-compatible", "1": "rare", "2": "set", "3": "reserved"},
+    "rarities": {
+      "0": "vanilla-compatible",
+      "1": "rare",
+      "2": "set",
+      "3": "unique"
+    },
     "slots": [
-      {"index": 0, "mask": "0x000007E0", "shift": 5},
-      {"index": 1, "mask": "0x0001F800", "shift": 11},
-      {"index": 2, "mask": "0x007E0000", "shift": 17},
-      {"index": 3, "mask": "0x1F800000", "shift": 23}
+      {
+        "index": 0,
+        "mask": "0x000007E0",
+        "shift": 5
+      },
+      {
+        "index": 1,
+        "mask": "0x0001F800",
+        "shift": 11
+      },
+      {
+        "index": 2,
+        "mask": "0x007E0000",
+        "shift": 17
+      },
+      {
+        "index": 3,
+        "mask": "0x1F800000",
+        "shift": 23
+      }
     ],
-    "compactCode": {"none": 0, "min": 1, "max": 63, "policy": "append-only-never-reuse"}
+    "compactCode": {
+      "none": 0,
+      "min": 1,
+      "max": 59,
+      "policy": "append-only-never-reuse"
+    },
+    "namedIdentity": {
+      "slot": 1,
+      "scope": "set-or-unique-only",
+      "reservedCodes": [
+        60,
+        61,
+        62
+      ],
+      "legacyCode": 0,
+      "policy": "append-only-never-reuse; never TSV row index"
+    }
   },
   "entries": [
-    {"stableId":"RTT_AFFIX_0002","compactCode":1,"symbol":"GRAVEBOUND_T1","displayName":"Gravebound","position":"prefix","tier":1,"minItemLevel":1,"tags":["weapon"],"effect":{"stat":"damagePercent","min":8,"max":12}},
-    {"stableId":"RTT_AFFIX_0003","compactCode":2,"symbol":"GRAVEBOUND_T2","displayName":"Gravebound","position":"prefix","tier":2,"minItemLevel":10,"tags":["weapon"],"effect":{"stat":"damagePercent","min":13,"max":20}},
-    {"stableId":"RTT_AFFIX_0004","compactCode":3,"symbol":"GRAVEBOUND_T3","displayName":"Gravebound","position":"prefix","tier":3,"minItemLevel":20,"tags":["weapon"],"effect":{"stat":"damagePercent","min":21,"max":30}},
-
-    {"stableId":"RTT_AFFIX_0005","compactCode":4,"symbol":"STALWART_T1","displayName":"Stalwart","position":"prefix","tier":1,"minItemLevel":1,"tags":["armor","shield"],"effect":{"stat":"armorPercent","min":8,"max":12}},
-    {"stableId":"RTT_AFFIX_0006","compactCode":5,"symbol":"STALWART_T2","displayName":"Stalwart","position":"prefix","tier":2,"minItemLevel":10,"tags":["armor","shield"],"effect":{"stat":"armorPercent","min":13,"max":20}},
-    {"stableId":"RTT_AFFIX_0007","compactCode":6,"symbol":"STALWART_T3","displayName":"Stalwart","position":"prefix","tier":3,"minItemLevel":20,"tags":["armor","shield"],"effect":{"stat":"armorPercent","min":21,"max":30}},
-
-    {"stableId":"RTT_AFFIX_0008","compactCode":7,"symbol":"OF_EMBERS_T1","displayName":"of Embers","position":"suffix","tier":1,"minItemLevel":1,"tags":["equipment"],"effect":{"stat":"fireResist","min":6,"max":10}},
-    {"stableId":"RTT_AFFIX_0009","compactCode":8,"symbol":"OF_EMBERS_T2","displayName":"of Embers","position":"suffix","tier":2,"minItemLevel":10,"tags":["equipment"],"effect":{"stat":"fireResist","min":11,"max":18}},
-    {"stableId":"RTT_AFFIX_0010","compactCode":9,"symbol":"OF_EMBERS_T3","displayName":"of Embers","position":"suffix","tier":3,"minItemLevel":20,"tags":["equipment"],"effect":{"stat":"fireResist","min":19,"max":28}},
-
-    {"stableId":"RTT_AFFIX_0011","compactCode":10,"symbol":"OF_STORMS_T1","displayName":"of Storms","position":"suffix","tier":1,"minItemLevel":1,"tags":["equipment"],"effect":{"stat":"lightningResist","min":6,"max":10}},
-    {"stableId":"RTT_AFFIX_0012","compactCode":11,"symbol":"OF_STORMS_T2","displayName":"of Storms","position":"suffix","tier":2,"minItemLevel":10,"tags":["equipment"],"effect":{"stat":"lightningResist","min":11,"max":18}},
-    {"stableId":"RTT_AFFIX_0013","compactCode":12,"symbol":"OF_STORMS_T3","displayName":"of Storms","position":"suffix","tier":3,"minItemLevel":20,"tags":["equipment"],"effect":{"stat":"lightningResist","min":19,"max":28}}
+    {
+      "stableId": "RTT_AFFIX_0002",
+      "compactCode": 1,
+      "symbol": "GRAVEBOUND_T1",
+      "displayName": "Gravebound",
+      "position": "prefix",
+      "tier": 1,
+      "minItemLevel": 1,
+      "tags": [
+        "weapon"
+      ],
+      "effect": {
+        "stat": "damagePercent",
+        "min": 8,
+        "max": 12
+      }
+    },
+    {
+      "stableId": "RTT_AFFIX_0003",
+      "compactCode": 2,
+      "symbol": "GRAVEBOUND_T2",
+      "displayName": "Gravebound",
+      "position": "prefix",
+      "tier": 2,
+      "minItemLevel": 10,
+      "tags": [
+        "weapon"
+      ],
+      "effect": {
+        "stat": "damagePercent",
+        "min": 13,
+        "max": 20
+      }
+    },
+    {
+      "stableId": "RTT_AFFIX_0004",
+      "compactCode": 3,
+      "symbol": "GRAVEBOUND_T3",
+      "displayName": "Gravebound",
+      "position": "prefix",
+      "tier": 3,
+      "minItemLevel": 20,
+      "tags": [
+        "weapon"
+      ],
+      "effect": {
+        "stat": "damagePercent",
+        "min": 21,
+        "max": 30
+      }
+    },
+    {
+      "stableId": "RTT_AFFIX_0005",
+      "compactCode": 4,
+      "symbol": "STALWART_T1",
+      "displayName": "Stalwart",
+      "position": "prefix",
+      "tier": 1,
+      "minItemLevel": 1,
+      "tags": [
+        "armor",
+        "shield"
+      ],
+      "effect": {
+        "stat": "armorPercent",
+        "min": 8,
+        "max": 12
+      }
+    },
+    {
+      "stableId": "RTT_AFFIX_0006",
+      "compactCode": 5,
+      "symbol": "STALWART_T2",
+      "displayName": "Stalwart",
+      "position": "prefix",
+      "tier": 2,
+      "minItemLevel": 10,
+      "tags": [
+        "armor",
+        "shield"
+      ],
+      "effect": {
+        "stat": "armorPercent",
+        "min": 13,
+        "max": 20
+      }
+    },
+    {
+      "stableId": "RTT_AFFIX_0007",
+      "compactCode": 6,
+      "symbol": "STALWART_T3",
+      "displayName": "Stalwart",
+      "position": "prefix",
+      "tier": 3,
+      "minItemLevel": 20,
+      "tags": [
+        "armor",
+        "shield"
+      ],
+      "effect": {
+        "stat": "armorPercent",
+        "min": 21,
+        "max": 30
+      }
+    },
+    {
+      "stableId": "RTT_AFFIX_0008",
+      "compactCode": 7,
+      "symbol": "OF_EMBERS_T1",
+      "displayName": "of Embers",
+      "position": "suffix",
+      "tier": 1,
+      "minItemLevel": 1,
+      "tags": [
+        "equipment"
+      ],
+      "effect": {
+        "stat": "fireResist",
+        "min": 6,
+        "max": 10
+      }
+    },
+    {
+      "stableId": "RTT_AFFIX_0009",
+      "compactCode": 8,
+      "symbol": "OF_EMBERS_T2",
+      "displayName": "of Embers",
+      "position": "suffix",
+      "tier": 2,
+      "minItemLevel": 10,
+      "tags": [
+        "equipment"
+      ],
+      "effect": {
+        "stat": "fireResist",
+        "min": 11,
+        "max": 18
+      }
+    },
+    {
+      "stableId": "RTT_AFFIX_0010",
+      "compactCode": 9,
+      "symbol": "OF_EMBERS_T3",
+      "displayName": "of Embers",
+      "position": "suffix",
+      "tier": 3,
+      "minItemLevel": 20,
+      "tags": [
+        "equipment"
+      ],
+      "effect": {
+        "stat": "fireResist",
+        "min": 19,
+        "max": 28
+      }
+    },
+    {
+      "stableId": "RTT_AFFIX_0011",
+      "compactCode": 10,
+      "symbol": "OF_STORMS_T1",
+      "displayName": "of Storms",
+      "position": "suffix",
+      "tier": 1,
+      "minItemLevel": 1,
+      "tags": [
+        "equipment"
+      ],
+      "effect": {
+        "stat": "lightningResist",
+        "min": 6,
+        "max": 10
+      }
+    },
+    {
+      "stableId": "RTT_AFFIX_0012",
+      "compactCode": 11,
+      "symbol": "OF_STORMS_T2",
+      "displayName": "of Storms",
+      "position": "suffix",
+      "tier": 2,
+      "minItemLevel": 10,
+      "tags": [
+        "equipment"
+      ],
+      "effect": {
+        "stat": "lightningResist",
+        "min": 11,
+        "max": 18
+      }
+    },
+    {
+      "stableId": "RTT_AFFIX_0013",
+      "compactCode": 12,
+      "symbol": "OF_STORMS_T3",
+      "displayName": "of Storms",
+      "position": "suffix",
+      "tier": 3,
+      "minItemLevel": 20,
+      "tags": [
+        "equipment"
+      ],
+      "effect": {
+        "stat": "lightningResist",
+        "min": 19,
+        "max": 28
+      }
+    },
+    {
+      "stableId": "RTT_AFFIX_0014",
+      "compactCode": 13,
+      "symbol": "MARROW_T1",
+      "displayName": "Marrow",
+      "position": "prefix",
+      "tier": 1,
+      "minItemLevel": 1,
+      "tags": [
+        "equipment"
+      ],
+      "effect": {
+        "stat": "vitality",
+        "min": 1,
+        "max": 3
+      }
+    },
+    {
+      "stableId": "RTT_AFFIX_0015",
+      "compactCode": 14,
+      "symbol": "MARROW_T2",
+      "displayName": "Marrow",
+      "position": "prefix",
+      "tier": 2,
+      "minItemLevel": 10,
+      "tags": [
+        "equipment"
+      ],
+      "effect": {
+        "stat": "vitality",
+        "min": 4,
+        "max": 6
+      }
+    },
+    {
+      "stableId": "RTT_AFFIX_0016",
+      "compactCode": 15,
+      "symbol": "MARROW_T3",
+      "displayName": "Marrow",
+      "position": "prefix",
+      "tier": 3,
+      "minItemLevel": 20,
+      "tags": [
+        "equipment"
+      ],
+      "effect": {
+        "stat": "vitality",
+        "min": 7,
+        "max": 9
+      }
+    }
   ]
 }

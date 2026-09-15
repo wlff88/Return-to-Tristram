@@ -25,7 +25,7 @@ $ConfigureArgs = @(
     '-S', $SourceDir,
     '-B', $BuildDir,
     '-A', 'x64',
-    '-DBUILD_TESTING=OFF'
+    '-DBUILD_TESTING=ON'
 )
 
 if ($VcpkgRoot) {
@@ -54,7 +54,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "CMake configure failed with exit code $LASTEXITCODE"
 }
 
-cmake --build $BuildDir --config $Configuration --target devilutionx --parallel
+cmake --build $BuildDir --config $Configuration --target devilutionx rtt_phase4_test --parallel
 if ($LASTEXITCODE -ne 0) {
     throw "DevilutionX build failed with exit code $LASTEXITCODE"
 }

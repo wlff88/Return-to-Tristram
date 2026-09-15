@@ -1,0 +1,949 @@
+diff --git a/Source/items.cpp b/Source/items.cpp
+--- a/Source/items.cpp
++++ b/Source/items.cpp
+@@ -266,6 +266,24 @@
+ 	return static_cast<uint8_t>((item.dwBuff & RttAffixMasks[slot]) >> RttAffixShifts[slot]);
+ }
+ 
++// Named item identity codes are append-only and independent of TSV row indices.
++// Zero remains the legacy Phase 4 encoding and is decoded by equipment kind.
++uint8_t RttNamedIdentity(const Item &item)
++{
++    const auto rarity = GetRttItemRarity(item);
++    const uint8_t code = GetRttAffixCode(item, 1);
++    if (rarity == RttItemRarity::Set) {
++        if ((code == 61 || code == 0) && item.isShield()) return 61;
++        if ((code == 62 || code == 0) && item._itype == ItemType::LightArmor) return 62;
++    }
++    if (rarity == RttItemRarity::Unique) {
++        if ((code == 60 || code == 0) && item._itype == ItemType::Staff) return 60;
++        if ((code == 61 || code == 0) && item.isShield()) return 61;
++        if ((code == 62 || code == 0) && item._itype == ItemType::LightArmor) return 62;
++    }
++    return 0;
++}
++
+ uint32_t RttMix(uint32_t value)
+ {
+ 	value ^= value >> 16;
+@@ -287,7 +305,7 @@
+ 
+ bool IsRttPrefixCode(uint8_t code)
+ {
+-	return code >= 1 && code <= 6;
++	return (code >= 1 && code <= 6) || (code >= 13 && code <= 15);
+ }
+ 
+ bool IsRttSuffixCode(uint8_t code)
+@@ -297,7 +315,7 @@
+ 
+ int RttAffixMinItemLevel(uint8_t code)
+ {
+-	if (code < 1 || code > 12)
++	if (code < 1 || code > 15)
+ 		return CF_LEVEL + 1;
+ 	const uint8_t tier = static_cast<uint8_t>((code - 1) % 3);
+ 	return tier == 0 ? 1 : tier == 1 ? 10 : 20;
+@@ -313,14 +331,14 @@
+ 	const bool prefixSlot = slot < 2;
+ 	if (prefixSlot ? !IsRttPrefixCode(code) : !IsRttSuffixCode(code))
+ 		return false;
+-	if (itemLevel < RttAffixMinItemLevel(code))
++	if (itemLevel < RttAffixMinItemLevel(code) && !(GetRttItemRarity(item) == RttItemRarity::Unique && RttNamedIdentity(item) == 62 && code == 9 && slot == 2 && itemLevel >= 18))
+ 		return false;
+ 
+ 	if (code <= 3)
+ 		return item.isWeapon();
+ 	if (code <= 6)
+ 		return item.isArmor() || item.isShield() || item.isHelm();
+-	return code <= 12 && item.isEquipment();
++	return code <= 15 && item.isEquipment();
+ }
+ 
+ uint8_t RttTierCode(int level, uint8_t tier1Code)
+@@ -342,33 +360,22 @@
+ 
+ std::array<uint8_t, 4> BuildRttRareCodes(const Item &item, int level, uint32_t salt)
+ {
+-	std::array<uint8_t, 4> codes {};
+-	const uint32_t selector = RttMix(item._iSeed + salt + 0x52545434U);
+-
+-	// Slots 0-1 are permanently prefix slots; slots 2-3 are suffix slots.
+-	// The current compact catalog has one compatible prefix family per broad
+-	// equipment class, so slot 1 intentionally stays empty until another
+-	// compatible prefix family is allocated.
+-	if (item.isWeapon())
+-		codes[0] = RttTierCode(level, 1);
+-	else if (item.isArmor() || item.isShield() || item.isHelm())
+-		codes[0] = RttTierCode(level, 4);
+-
+-	const uint8_t fire = RttTierCode(level, 7);
+-	const uint8_t lightning = RttTierCode(level, 10);
+-	if ((selector & 1U) == 0) {
+-		codes[2] = fire;
+-		codes[3] = lightning;
+-	} else {
+-		codes[2] = lightning;
+-		codes[3] = fire;
+-	}
+-
+-	for (size_t slot = 0; slot < codes.size(); ++slot) {
+-		if (!IsRttAffixCompatible(item, codes[slot], slot, level))
+-			codes[slot] = 0;
+-	}
+-	return codes;
++    std::array<uint8_t, 4> codes {};
++    uint32_t selector = RttMix(item._iSeed + salt + 0x52545434U);
++    const unsigned count = 1 + selector % 4;
++    std::array<uint8_t, 4> families { static_cast<uint8_t>(item.isWeapon() ? 1 : 4), 13, 7, 10 };
++    unsigned added = 0;
++    // Rotate candidate order so 1/2-affix items are not limited to prefixes.
++    for (unsigned i = 0; i < 4 && added < count; ++i) {
++        const unsigned slot = (i + ((selector >> 8) % 4)) % 4;
++        const uint8_t family = families[slot];
++        const unsigned maxTier = RttTierCode(level, family) - family;
++        const uint8_t code = family + RttMix(selector + slot) % (maxTier + 1);
++        if (!IsRttAffixCompatible(item, code, slot, level)) continue;
++        codes[slot] = code;
++        ++added;
++    }
++    return codes;
+ }
+ 
+ void ApplyRttAffix(Item &item, uint8_t code, size_t slot)
+@@ -376,6 +383,11 @@
+ 	const int itemLevel = item._iCreateInfo & CF_LEVEL;
+ 	if (!IsRttAffixCompatible(item, code, slot, itemLevel))
+ 		return;
++
++    if (code >= 13 && code <= 15) {
++        item._iPLVit += RttRoll(item, code, slot, 1 + (code - 13) * 3, 3 + (code - 13) * 3);
++        return;
++    }
+ 
+ 	if (code >= 1 && code <= 3) {
+ 		static constexpr std::array<int, 3> Min { 8, 13, 21 };
+@@ -431,18 +443,14 @@
+ 	if (rarity == RttItemRarity::Rare) {
+ 		name = RttRareName(item);
+ 	} else if (rarity == RttItemRarity::Set) {
+-		name = item.isShield() ? "Ossuary Guard" : "Ossuary Vestment";
++		name = RttNamedIdentity(item) == 61 ? "Ossuary Guard" : "Ossuary Vestment";
+ 	} else if (rarity == RttItemRarity::Unique) {
+-		if (item._itype == ItemType::Staff) {
+-			name = "Ashen Covenant";
+-			item._iSplLvlAdd += 1;
+-		} else if (item.isShield()) {
+-			name = "Boneward";
+-			item._iPLGetHit -= 5;
+-		} else {
+-			name = "Gravewhisper";
+-			item._iSplLvlAdd += 1;
+-		}
++        switch (RttNamedIdentity(item)) {
++        case 60: name = "Ashen Covenant"; break;
++        case 61: name = "Boneward"; break;
++        case 62: name = "Gravewhisper"; break;
++        default: return;
++        }
+ 	}
+ 	if (!name.empty())
+ 		CopyUtf8(item._iIName, name, ItemNameLength);
+@@ -457,19 +465,27 @@
+ 	const uint32_t rarityRoll = RttMix(item._iSeed ^ 0xA17E4D31U) % 100;
+ 	if (rarityRoll < 2 && level >= 12) {
+ 		if (item._itype == ItemType::Staff) {
+-			SetRttMetadata(item, RttItemRarity::Unique, { 2, 0, 8, 0 });
++			SetRttMetadata(item, RttItemRarity::Unique, { 2, 60, 8, 0 });
+ 		} else if (item.isShield() && level >= 15) {
+-			SetRttMetadata(item, RttItemRarity::Unique, { 5, 0, 11, 0 });
++			SetRttMetadata(item, RttItemRarity::Unique, { 5, 61, 11, 0 });
+ 		} else if (item._itype == ItemType::LightArmor && level >= 18) {
+-			SetRttMetadata(item, RttItemRarity::Unique, { 5, 0, 9, 0 });
++			SetRttMetadata(item, RttItemRarity::Unique, { 5, 62, 9, 0 });
+ 		}
+ 	}
+ 	if (!HasRttItemMetadata(item) && rarityRoll >= 2 && rarityRoll < 6 && level >= 10 && (item.isShield() || item._itype == ItemType::LightArmor))
+-		SetRttMetadata(item, RttItemRarity::Set, { RttTierCode(level, 4), 0, RttTierCode(level, 7), RttTierCode(level, 10) });
++		SetRttMetadata(item, RttItemRarity::Set, { RttTierCode(level, 4), static_cast<uint8_t>(item.isShield() ? 61 : 62), RttTierCode(level, 7), RttTierCode(level, 10) });
+ 	if (!HasRttItemMetadata(item) && rarityRoll >= 6 && rarityRoll < 21)
+ 		SetRttMetadata(item, RttItemRarity::Rare, BuildRttRareCodes(item, level, 0));
+ 
+-	ApplyRttItemMetadata(item);
++    if (HasRttItemMetadata(item)) {
++        const auto metadata = item.dwBuff;
++        const auto seed = item._iSeed;
++        const auto createInfo = item._iCreateInfo;
++        const auto position = item.position;
++        const auto idx = item.IDidx;
++        RecreateItem(*MyPlayer, item, idx, createInfo, seed, item._ivalue, metadata);
++        item.position = position;
++    }
+ }
+ 
+ std::string RttAffixLine(const Item &item, size_t slot, uint8_t code)
+@@ -477,6 +493,9 @@
+ 	const int itemLevel = item._iCreateInfo & CF_LEVEL;
+ 	if (!IsRttAffixCompatible(item, code, slot, itemLevel))
+ 		return {};
++
++    if (code >= 13 && code <= 15)
++        return FormatRuntime(_("Vitality +{:d}"), RttRoll(item, code, slot, 1 + (code - 13) * 3, 3 + (code - 13) * 3));
+ 
+ 	if (code >= 1 && code <= 3)
+ 		return FormatRuntime(_("Damage +{:d}%"), RttRoll(item, code, slot, code == 1 ? 8 : code == 2 ? 13 : 21, code == 1 ? 12 : code == 2 ? 20 : 30));
+@@ -2127,7 +2146,7 @@
+ 				AddItemInfoBoxString(line);
+ 		}
+ 		if (GetRttItemRarity(item) == RttItemRarity::Unique && item._itype == ItemType::Staff)
+-			AddItemInfoBoxString(_("+1 to all spell levels"));
++			AddItemInfoBoxString(_("+1 to Bone Spike"));
+ 	}
+ 	uint8_t str = item._iMinStr;
+ 	uint8_t dex = item._iMinDex;
+@@ -3109,12 +3128,24 @@
+ 	int maxFireDam = 0;
+ 	int minLightDam = 0;
+ 	int maxLightDam = 0;
+-	int rttSetPieces = 0;
++	unsigned rttSetPieces = 0;
++    player.rttBoneSpikeRank = 0;
++    player.rttBoneArmorRank = 0;
++    player.rttDamageReduction = 0;
+ 
+ 	for (const Item &item : player.InvBody) {
+ 		if (!item.isEmpty() && item._iStatFlag) {
+-			if (GetRttItemRarity(item) == RttItemRarity::Set)
+-				rttSetPieces++;
++			if (item._iIdentified && GetRttItemRarity(item) == RttItemRarity::Set) {
++                const auto identity = RttNamedIdentity(item);
++                if (identity == 61) rttSetPieces |= 1;
++                if (identity == 62) rttSetPieces |= 2;
++            }
++            if (item._iIdentified && GetRttItemRarity(item) == RttItemRarity::Unique) {
++                const auto identity = RttNamedIdentity(item);
++                if (identity == 60) ++player.rttBoneSpikeRank;
++                if (identity == 61) player.rttDamageReduction += 5;
++                if (identity == 62) ++player.rttBoneArmorRank;
++            }
+ 
+ 			minDamage += item._iMinDam;
+ 			maxDamage += item._iMaxDam;
+@@ -3151,10 +3182,10 @@
+ 			}
+ 		}
+ 	}
+-	if (rttSetPieces >= 2) {
++	if (rttSetPieces == 3) {
+ 		fireRes += 10;
+ 		lightRes += 10;
+-		splLvlAdd += 1;
++		player.rttBoneArmorRank += 1;
+ 	}
+ 
+ 	CalcPlrDamage(player, minDamage, maxDamage);
+@@ -3813,6 +3844,19 @@
+ 	item.dwBuff = dwBuff;
+ 	gbIsHellfire = (item.dwBuff & CF_HELLFIRE) != 0;
+ 
++    if ((dwBuff & RttMarkerMask) != 0) {
++        InitializeItem(item, idx);
++        SetRndSeed(iseed);
++        GetItemAttrs(item, idx, (icreateinfo & CF_LEVEL) / 2);
++        item._iSeed = iseed;
++        item._iCreateInfo = icreateinfo;
++        item.dwBuff = dwBuff;
++        ApplyRttItemMetadata(item);
++        SetupItem(item);
++        gbIsHellfire = tmpIsHellfire;
++        return;
++    }
++
+ 	if (idx == IDI_GOLD) {
+ 		InitializeItem(item, IDI_GOLD);
+ 		item._iSeed = iseed;
+@@ -3865,81 +3909,86 @@
+ 	gbIsHellfire = tmpIsHellfire;
+ }
+ 
+-namespace {
+-
+-bool RebuildHeldRttRare(Player &player, uint32_t metadata)
+-{
+-	Item &held = player.HoldItem;
+-	if (held.isEmpty() || GetRttItemRarity(held) != RttItemRarity::Rare)
+-		return false;
+-
+-	const bool identified = held._iIdentified;
+-	const uint32_t upstreamBuff = held.dwBuff & RttUpstreamBuffMask;
+-	Item rebuilt {};
+-	RecreateItem(player, rebuilt, held.IDidx, held._iCreateInfo, held._iSeed, held._ivalue, upstreamBuff);
+-	rebuilt.dwBuff = upstreamBuff | metadata;
+-	ApplyRttItemMetadata(rebuilt);
+-	rebuilt._iIdentified = identified;
+-	held = rebuilt;
+-	CalcPlrInv(player, true);
+-	return true;
+-}
+-
+-} // namespace
+-
+-bool RttReforgeHeldRare(Player &player)
+-{
+-	if (!IsRttRuntime() || player.HoldItem.isEmpty() || GetRttItemRarity(player.HoldItem) != RttItemRarity::Rare)
+-		return false;
+-	Item prototype = player.HoldItem;
+-	const int level = prototype._iCreateInfo & CF_LEVEL;
+-	SetRttMetadata(prototype, RttItemRarity::Rare, BuildRttRareCodes(prototype, level, prototype.dwBuff));
+-	const bool ok = RebuildHeldRttRare(player, prototype.dwBuff & ~RttUpstreamBuffMask);
+-	if (ok)
+-		EventPlrMsg(_("RTT: rare item reforged."), UiFlags::ColorWhite);
+-	return ok;
+-}
+-
++bool RttPrepareCraft(const Player &player, const Item &target, unsigned recipe, unsigned selectedSlot, Item &result)
++{
++    if (!IsRttRuntime() || target.isEmpty() || !target.isEquipment() || !target._iIdentified || GetRttItemRarity(target) != RttItemRarity::Rare || recipe < 2 || recipe > 4 || selectedSlot >= 4) return false;
++    const int level = target._iCreateInfo & CF_LEVEL;
++    std::array<uint8_t, 4> codes {};
++    for (size_t slot = 0; slot < codes.size(); ++slot) {
++        codes[slot] = GetRttAffixCode(target, slot);
++        if (!IsRttAffixCompatible(target, codes[slot], slot, level)) return false;
++    }
++    if (recipe == 2) {
++        codes = BuildRttRareCodes(target, level, target.dwBuff);
++    } else {
++        const auto code = codes[selectedSlot];
++        if (code == 0) return false;
++        if (recipe == 3) {
++            if ((code - 1) % 3 == 2 || !IsRttAffixCompatible(target, code + 1, selectedSlot, level)) return false;
++            codes[selectedSlot] = code + 1;
++        } else {
++            std::array<uint8_t, 15> candidates {};
++            unsigned count = 0;
++            for (uint8_t candidate = 1; candidate <= 15; ++candidate) {
++                if (candidate == code || !IsRttAffixCompatible(target, candidate, selectedSlot, level)) continue;
++                bool duplicate = false;
++                for (size_t other = 0; other < codes.size(); ++other)
++                    if (other != selectedSlot && codes[other] != 0 && (codes[other] - 1) / 3 == (candidate - 1) / 3) duplicate = true;
++                if (!duplicate) candidates[count++] = candidate;
++            }
++            if (count == 0) return false;
++            codes[selectedSlot] = candidates[RttMix(target._iSeed + target.dwBuff + selectedSlot) % count];
++        }
++    }
++    Item metadata = target;
++    SetRttMetadata(metadata, RttItemRarity::Rare, codes);
++    if (metadata.dwBuff == target.dwBuff) return false;
++    Item rebuilt {};
++    RecreateItem(player, rebuilt, target.IDidx, target._iCreateInfo, target._iSeed, target._ivalue, metadata.dwBuff);
++    rebuilt._iIdentified = target._iIdentified;
++    rebuilt._iDurability = target._iDurability;
++    rebuilt._iMaxDur = target._iMaxDur;
++    rebuilt._iCharges = target._iCharges;
++    rebuilt._iMaxCharges = target._iMaxCharges;
++    rebuilt.position = target.position;
++    result = rebuilt;
++    return true;
++}
++
++bool RttCraftHeldRare(Player &player, unsigned recipe, unsigned slot)
++{
++    // The owning peer commits inventory mutations, as with the engine's stores.
++    // Gold and the eventual placement/drop use existing inventory network messages.
++    if (&player != MyPlayer || recipe < 2 || recipe > 4) return false;
++    constexpr std::array<int, 3> Costs { 100, 150, 50 };
++    const int cost = Costs[recipe - 2];
++    if (CalculateGold(player) < cost) return false;
++    Item result {};
++    if (!RttPrepareCraft(player, player.HoldItem, recipe, slot, result)) return false;
++    TakePlrsMoney(cost);
++    for (int index = 0; index < player._pNumInv; ++index)
++        if (player.InvList[index]._itype == ItemType::Gold) NetSyncInvItem(player, index);
++    player.HoldItem = result;
++    CalcPlrInv(player, true);
++    return true;
++}
++
++bool RttReforgeHeldRare(Player &player) { return RttCraftHeldRare(player, 2, 0); }
+ bool RttRaiseHeldAffixTier(Player &player)
+ {
+-	if (!IsRttRuntime() || player.HoldItem.isEmpty() || GetRttItemRarity(player.HoldItem) != RttItemRarity::Rare)
+-		return false;
+-	Item prototype = player.HoldItem;
+-	const int level = prototype._iCreateInfo & CF_LEVEL;
+-	std::array<uint8_t, 4> codes {};
+-	bool changed = false;
+-	for (size_t slot = 0; slot < codes.size(); ++slot) {
+-		codes[slot] = GetRttAffixCode(prototype, slot);
+-		if (!changed && codes[slot] != 0 && ((codes[slot] - 1) % 3) != 2) {
+-			const uint8_t next = codes[slot] + 1;
+-			const int requiredLevel = ((next - 1) % 3) == 1 ? 10 : 20;
+-			if (level >= requiredLevel) {
+-				codes[slot] = next;
+-				changed = true;
+-			}
+-		}
+-	}
+-	if (!changed)
+-		return false;
+-	SetRttMetadata(prototype, RttItemRarity::Rare, codes);
+-	const bool ok = RebuildHeldRttRare(player, prototype.dwBuff & ~RttUpstreamBuffMask);
+-	if (ok)
+-		EventPlrMsg(_("RTT: affix tier raised."), UiFlags::ColorWhite);
+-	return ok;
+-}
+-
++    for (unsigned slot = 0; slot < 4; ++slot) {
++        Item candidate {};
++        if (RttPrepareCraft(player, player.HoldItem, 3, slot, candidate)) return RttCraftHeldRare(player, 3, slot);
++    }
++    return false;
++}
+ bool RttRerollHeldAffixSlot(Player &player)
+ {
+-	if (!IsRttRuntime() || player.HoldItem.isEmpty() || GetRttItemRarity(player.HoldItem) != RttItemRarity::Rare)
+-		return false;
+-	Item prototype = player.HoldItem;
+-	const int level = prototype._iCreateInfo & CF_LEVEL;
+-	auto codes = BuildRttRareCodes(prototype, level, prototype.dwBuff ^ 0x534C4F54U);
+-	SetRttMetadata(prototype, RttItemRarity::Rare, codes);
+-	const bool ok = RebuildHeldRttRare(player, prototype.dwBuff & ~RttUpstreamBuffMask);
+-	if (ok)
+-		EventPlrMsg(_("RTT: affix slot rerolled."), UiFlags::ColorWhite);
+-	return ok;
++    for (unsigned slot = 0; slot < 4; ++slot) {
++        Item candidate {};
++        if (RttPrepareCraft(player, player.HoldItem, 4, slot, candidate)) return RttCraftHeldRare(player, 4, slot);
++    }
++    return false;
+ }
+ 
+ void RecreateEar(Item &item, uint16_t ic, uint32_t iseed, uint8_t bCursval, std::string_view heroName)
+diff --git a/Source/items.h b/Source/items.h
+--- a/Source/items.h
++++ b/Source/items.h
+@@ -527,6 +527,8 @@
+ _item_indexes RndItemForMonsterLevel(int8_t monsterLevel);
+ void SetupAllItems(const Player &player, Item &item, _item_indexes idx, uint32_t iseed, int lvl, int uper, bool onlygood, bool pregen, int uidOffset = 0, bool forceNotUnique = false, bool generateRttMetadata = true);
+ void TryRandomUniqueItem(Item &item, _item_indexes idx, int8_t mLevel, int uper, bool onlygood, bool pregen);
++bool RttPrepareCraft(const Player &player, const Item &target, unsigned recipe, unsigned selectedSlot, Item &result);
++bool RttCraftHeldRare(Player &player, unsigned recipe, unsigned slot);
+ bool RttReforgeHeldRare(Player &player);
+ bool RttRaiseHeldAffixTier(Player &player);
+ bool RttRerollHeldAffixSlot(Player &player);
+diff --git a/Source/loadsave.cpp b/Source/loadsave.cpp
+--- a/Source/loadsave.cpp
++++ b/Source/loadsave.cpp
+@@ -637,7 +637,8 @@
+ 	player.pDiabloKillLevel = file.NextLE<uint32_t>();
+ 	sgGameInitInfo.nDifficulty = static_cast<_difficulty>(file.NextLE<uint32_t>());
+ 	player.pDamAcFlags = static_cast<ItemSpecialEffectHf>(file.NextLE<uint32_t>());
+-	file.Skip(20); // Available bytes
++	file.NextBytes(player.rttProgression.data(), player.rttProgression.size());
++    EnsureRttNecromancerProgression(player);
+ 	CalcPlrInv(player, false);
+ 
+ 	player.executedSpell = player.queuedSpell; // Ensures backwards compatibility
+@@ -1487,7 +1488,7 @@
+ 	file.WriteLE<uint32_t>(player.pDiabloKillLevel);
+ 	file.WriteLE<uint32_t>(sgGameInitInfo.nDifficulty);
+ 	file.WriteLE<uint32_t>(static_cast<uint32_t>(player.pDamAcFlags));
+-	file.Skip(20); // Available bytes
++	file.WriteBytes(player.rttProgression.data(), player.rttProgression.size());
+ 
+ 	// Omit pointer _pNData
+ 	// Omit pointer _pWData
+diff --git a/Source/lua/modules/player.cpp b/Source/lua/modules/player.cpp
+--- a/Source/lua/modules/player.cpp
++++ b/Source/lua/modules/player.cpp
+@@ -105,6 +105,16 @@
+ 		    player._pMana = player._pMaxMana;
+ 		    player._pManaBase = player._pMaxManaBase;
+ 	    });
++    LuaSetDocFn(playerType, "rttCraftHeldRare", "(recipe: integer, slot: integer)",
++        "Craft held Rare with recipe 2/3/4 and selected affix slot 0..3",
++        [](Player &player, unsigned recipe, unsigned slot) { return RttCraftHeldRare(player, recipe, slot); });
++    LuaSetDocFn(playerType, "rttChooseProgression", "(slot: integer, choice: integer)",
++        "Choose an RTT upgrade (0 spike, 1 armor, 2 pact, 3 specialization); implemented choice is 1",
++        [](Player &player, unsigned slot, unsigned choice) { return RttChooseProgression(player, slot, choice); });
++    LuaSetDocReadonlyProperty(playerType, "rttClassId", "string", "Logical RTT class identity",
++        [](const Player &player) { return player.rttProgression[2] == 2 ? "RTT_CLASS_0002" : ""; });
++    LuaSetDocReadonlyProperty(playerType, "rttSkillPoints", "number", "Unspent RTT skill points",
++        [](const Player &player) { return player.rttProgression[4]; });
+ 	LuaSetDocReadonlyProperty(playerType, "mana", "number",
+ 	    "Current mana (readonly)",
+ 	    [](Player &player) { return player._pMana >> 6; });
+diff --git a/Source/msg.cpp b/Source/msg.cpp
+--- a/Source/msg.cpp
++++ b/Source/msg.cpp
+@@ -178,6 +178,7 @@
+ 	case CMD_HEALOTHER: return "CMD_HEALOTHER";
+ 	case CMD_STRING: return "CMD_STRING";
+ 	case CMD_FRIENDLYMODE: return "CMD_FRIENDLYMODE";
++	case CMD_RTT_CHOICE: return "CMD_RTT_CHOICE";
+ 	case CMD_SETSTR: return "CMD_SETSTR";
+ 	case CMD_SETMAG: return "CMD_SETMAG";
+ 	case CMD_SETDEX: return "CMD_SETDEX";
+@@ -2413,6 +2414,13 @@
+ 	}
+ 
+ 	return sizeof(cmd);
++}
++
++size_t OnRttChoice(const TCmdParam2 &message, Player &player)
++{
++    if (gbBufferMsgs == 1) BufferMessage(player, &message, sizeof(message));
++    else if (&player != MyPlayer) RttChooseProgression(player, Swap16LE(message.wParam1), Swap16LE(message.wParam2), false);
++    return sizeof(message);
+ }
+ 
+ size_t OnSetStrength(const TCmdParam1 &message, Player &player)
+@@ -3466,6 +3474,8 @@
+ 		return OnDeactivatePortal(*pCmd, player);
+ 	case CMD_RETOWN:
+ 		return OnRestartTown(*pCmd, player);
++	case CMD_RTT_CHOICE:
++        return HandleCmd(OnRttChoice, player, pCmd, maxCmdSize);
+ 	case CMD_SETSTR:
+ 		return HandleCmd(OnSetStrength, player, pCmd, maxCmdSize);
+ 	case CMD_SETMAG:
+diff --git a/Source/msg.h b/Source/msg.h
+--- a/Source/msg.h
++++ b/Source/msg.h
+@@ -424,6 +424,7 @@
+ 	//
+ 	// body (TFakeDropPlr)
+ 	FAKE_CMD_DROPID,
++	CMD_RTT_CHOICE,
+ 	NUM_CMDS,
+ 	CMD_INVALID = 0xFF,
+ };
+diff --git a/Source/pack.cpp b/Source/pack.cpp
+--- a/Source/pack.cpp
++++ b/Source/pack.cpp
+@@ -152,6 +152,7 @@
+ void PackPlayer(PlayerPack &packed, const Player &player)
+ {
+ 	memset(&packed, 0, sizeof(packed));
++    std::copy(player.rttProgression.begin(), player.rttProgression.end(), packed.reserved3);
+ 	packed.destAction = player.destAction;
+ 	packed.destParam1 = player.destParam1;
+ 	packed.destParam2 = player.destParam2;
+@@ -219,6 +220,7 @@
+ 
+ void PackNetPlayer(PlayerNetPack &packed, const Player &player)
+ {
++    std::copy(player.rttProgression.begin(), player.rttProgression.end(), packed.rttProgression);
+ 	packed.plrlevel = player.plrlevel;
+ 	packed.px = player.position.tile.x;
+ 	packed.py = player.position.tile.y;
+@@ -430,7 +432,9 @@
+ 	for (int i = 0; i < MaxBeltItems; i++)
+ 		UnPackItem(packed.SpdList[i], player, player.SpdList[i], isHellfire);
+ 
+-	CalcPlrInv(player, false);
++	std::copy(std::begin(packed.reserved3), std::end(packed.reserved3), player.rttProgression.begin());
++    EnsureRttNecromancerProgression(player);
++    CalcPlrInv(player, false);
+ 	player.wReflections = Swap16LE(packed.wReflections);
+ 	player.pDiabloKillLevel = Swap32LE(packed.pDiabloKillLevel);
+ }
+@@ -447,7 +451,7 @@
+ 	}
+ 
+ 	const uint16_t creationFlags = Swap16LE(packedItem.item.wCI);
+-	const uint32_t dwBuff = Swap16LE(packedItem.item.dwBuff);
++	const uint32_t dwBuff = Swap32LE(packedItem.item.dwBuff);
+ 	if (idx != IDI_GOLD)
+ 		ValidateField(creationFlags, IsCreationFlagComboValid(creationFlags));
+ 	if ((creationFlags & CF_TOWN) != 0)
+@@ -580,7 +584,10 @@
+ 		ValidateField(beltItemUsable, beltItemUsable);
+ 	}
+ 
+-	CalcPlrInv(player, false);
++	std::copy(std::begin(packed.rttProgression), std::end(packed.rttProgression), player.rttProgression.begin());
++    if (GetActiveModSaveExtension() == "rtt" && player._pClass == HeroClass::Sorcerer && !rtt::Valid(player.rttProgression, player.getCharacterLevel())) return false;
++    EnsureRttNecromancerProgression(player);
++    CalcPlrInv(player, false);
+ 	player._pGold = CalculateGold(player);
+ 
+ 	ValidateFields(player._pStrength, SwapSigned32LE(packed.pStrength), player._pStrength == SwapSigned32LE(packed.pStrength));
+diff --git a/Source/pack.h b/Source/pack.h
+--- a/Source/pack.h
++++ b/Source/pack.h
+@@ -88,6 +88,7 @@
+ };
+ 
+ struct PlayerNetPack {
++    uint8_t rttProgression[20];
+ 	uint8_t plrlevel;
+ 	uint8_t px;
+ 	uint8_t py;
+diff --git a/Source/player.cpp b/Source/player.cpp
+--- a/Source/player.cpp
++++ b/Source/player.cpp
+@@ -1739,7 +1739,7 @@
+ int Player::GetManaShieldDamageReduction()
+ {
+ 	constexpr uint8_t Max = 7;
+-	return 24 - (std::min(_pSplLvl[static_cast<int8_t>(SpellID::ManaShield)], Max) * 3);
++	return 24 - (std::min<int>(GetSpellLevel(SpellID::ManaShield), Max) * 3);
+ }
+ 
+ void Player::RestorePartialLife()
+@@ -2385,27 +2385,28 @@
+ 
+ void EnsureRttNecromancerProgression(Player &player)
+ {
+-	if (GetActiveModSaveExtension() != "rtt" || player._pClass != HeroClass::Sorcerer)
+-		return;
+-
+-	const auto unlock = [&player](SpellID spell, uint8_t minimumLevel) {
+-		if (player.getCharacterLevel() < minimumLevel)
+-			return;
+-		const auto index = static_cast<size_t>(spell);
+-		player._pMemSpells |= GetSpellBitmask(spell);
+-		player._pSplLvl[index] = std::max<uint8_t>(player._pSplLvl[index], 1);
+-	};
+-
+-	unlock(SpellID::HolyBolt, 1);   // Bone Spike
+-	unlock(SpellID::ManaShield, 4); // Bone Armor
+-	unlock(SpellID::BloodStar, 8);  // Grave Pact
+-
+-	// Ossuary Mastery: the vertical slice grants a stable extra rank to the
+-	// primary bone skill and armor once level 15 is reached.
+-	if (player.getCharacterLevel() >= 15) {
+-		player._pSplLvl[static_cast<size_t>(SpellID::HolyBolt)] = std::max<uint8_t>(player._pSplLvl[static_cast<size_t>(SpellID::HolyBolt)], 2);
+-		player._pSplLvl[static_cast<size_t>(SpellID::ManaShield)] = std::max<uint8_t>(player._pSplLvl[static_cast<size_t>(SpellID::ManaShield)], 2);
+-	}
++    if (GetActiveModSaveExtension() != "rtt" || player._pClass != HeroClass::Sorcerer) { player.rttProgression = {}; return; }
++    rtt::Advance(player.rttProgression, player.getCharacterLevel());
++    if (!rtt::Valid(player.rttProgression, player.getCharacterLevel())) return;
++    const auto mask = player.rttProgression[9];
++    const auto unlock = [&player, mask](SpellID spell, unsigned bit) {
++        if ((mask & (1U << bit)) == 0) return;
++        player._pMemSpells |= GetSpellBitmask(spell);
++        auto &rank = player._pSplLvl[static_cast<size_t>(spell)];
++        rank = std::max<uint8_t>(rank, (mask & 16) && spell != SpellID::BloodStar ? 2 : 1);
++    };
++    unlock(SpellID::HolyBolt, 0);
++    unlock(SpellID::ManaShield, 1);
++    unlock(SpellID::BloodStar, 3);
++}
++
++bool RttChooseProgression(Player &player, unsigned slot, unsigned choice, bool broadcast)
++{
++    if (GetActiveModSaveExtension() != "rtt" || player._pClass != HeroClass::Sorcerer || (broadcast && &player != MyPlayer)) return false;
++    EnsureRttNecromancerProgression(player);
++    if (!rtt::Choose(player.rttProgression, player.getCharacterLevel(), slot, choice)) return false;
++    if (broadcast) NetSendCmdParam2(true, CMD_RTT_CHOICE, slot, choice);
++    return true;
+ }
+ 
+ void NextPlrLevel(Player &player)
+@@ -2514,7 +2515,7 @@
+ 			EnsureRttNecromancerProgression(*MyPlayer);
+ 			// Soul Siphon notable: from level 6 onward, kills restore 2% of
+ 			// maximum mana. This runs only for the local player credited by pmask.
+-			if (GetActiveModSaveExtension() == "rtt" && MyPlayer->_pClass == HeroClass::Sorcerer && MyPlayer->getCharacterLevel() >= 6) {
++			if (GetActiveModSaveExtension() == "rtt" && MyPlayer->_pClass == HeroClass::Sorcerer && (MyPlayer->rttProgression[9] & 4) != 0) {
+ 				const int restore = std::max(MyPlayer->_pMaxMana / 50, 1);
+ 				const int actual = std::min(restore, MyPlayer->_pMaxMana - MyPlayer->_pMana);
+ 				MyPlayer->_pMana += actual;
+@@ -2873,10 +2874,14 @@
+ void ApplyPlrDamage(DamageType damageType, Player &player, int dam, int minHP /*= 0*/, int frac /*= 0*/, DeathReason deathReason /*= DeathReason::MonsterOrTrap*/)
+ {
+ 	int totalDamage = (dam << 6) + frac;
++    if (totalDamage > 0)
++        totalDamage -= static_cast<int>(static_cast<int64_t>(totalDamage) * std::clamp(player.rttDamageReduction, 0, 75) / 100);
+ 	if (&player == MyPlayer && !player.hasNoLife()) {
+ 		lua::OnPlayerTakeDamage(&player, totalDamage, static_cast<int>(damageType));
+ 	}
+-	if (totalDamage > 0 && player.pManaShield && HasNoneOf(player._pIFlags, ItemSpecialEffect::NoMana)) {
++	if (totalDamage > 0 && player.pManaShield && player.rttProgression[6] == 1)
++        totalDamage -= totalDamage / 10;
++    if (totalDamage > 0 && player.pManaShield && HasNoneOf(player._pIFlags, ItemSpecialEffect::NoMana)) {
+ 		const uint8_t manaShieldLevel = player._pSplLvl[static_cast<int8_t>(SpellID::ManaShield)];
+ 		if (manaShieldLevel > 0) {
+ 			totalDamage += totalDamage / -player.GetManaShieldDamageReduction();
+diff --git a/Source/player.h b/Source/player.h
+--- a/Source/player.h
++++ b/Source/player.h
+@@ -27,6 +27,7 @@
+ #include "levels/dun_tile.hpp"
+ #include "levels/gendung.h"
+ #include "mods/mod_identity.h"
++#include "rtt_progression.h"
+ #include "multi.h"
+ #include "tables/playerdat.hpp"
+ #include "tables/spelldat.h"
+@@ -210,6 +211,10 @@
+ };
+ 
+ struct Player {
++    rtt::Progression rttProgression {};
++    int rttBoneSpikeRank = 0;
++    int rttBoneArmorRank = 0;
++    int rttDamageReduction = 0;
+ 	Player() = default;
+ 	Player(Player &&) noexcept = default;
+ 	Player &operator=(Player &&) noexcept = default;
+@@ -648,7 +653,9 @@
+ 			return 0;
+ 		}
+ 
+-		return std::max<int>(_pISplLvlAdd + _pSplLvl[static_cast<std::size_t>(spell)], 0);
++		const int choiceRank = !rtt::Valid(rttProgression, getCharacterLevel()) ? 0 : (spell == SpellID::HolyBolt ? rttProgression[5] + rttProgression[8] : spell == SpellID::BloodStar ? rttProgression[7] : 0);
++        const int rttRank = spell == SpellID::HolyBolt ? rttBoneSpikeRank : spell == SpellID::ManaShield ? rttBoneArmorRank : 0;
++        return std::max<int>(_pISplLvlAdd + _pSplLvl[static_cast<std::size_t>(spell)] + rttRank + choiceRank, 0);
+ 	}
+ 
+ 	/**
+@@ -963,6 +970,7 @@
+ #endif
+ void AddPlrMonstExper(int lvl, unsigned int exp, char pmask);
+ void EnsureRttNecromancerProgression(Player &player);
++bool RttChooseProgression(Player &player, unsigned slot, unsigned choice, bool broadcast = true);
+ void ApplyPlrDamage(DamageType damageType, Player &player, int dam, int minHP = 0, int frac = 0, DeathReason deathReason = DeathReason::MonsterOrTrap);
+ void InitPlayer(Player &player, bool FirstTime);
+ void InitMultiView();
+diff --git a/Source/rtt_progression.h b/Source/rtt_progression.h
+new file mode 100644
+--- /dev/null
++++ b/Source/rtt_progression.h
+@@ -0,0 +1,56 @@
++#pragma once
++#include <array>
++#include <algorithm>
++#include <cstdint>
++
++namespace devilution::rtt {
++// Save Schema v2 binary projection. These offsets are append-only.
++// [0] marker, [1] version, [2] logical class, [3] highest awarded level,
++// [4] unspent points, [5..7] active upgrades, [8] specialization,
++// [9] unlock mask (active, active, notable, active, mastery).
++using Progression = std::array<uint8_t, 20>;
++constexpr std::array<uint8_t, 7> PointLevels { 2, 4, 6, 8, 10, 12, 15 };
++inline unsigned Earned(unsigned level)
++{
++    return static_cast<unsigned>(std::count_if(PointLevels.begin(), PointLevels.end(), [level](unsigned gate) { return level >= gate; }));
++}
++inline uint8_t Unlocks(unsigned level)
++{
++    uint8_t mask = 0;
++    unsigned bit = 0;
++    for (unsigned gate : { 1, 4, 6, 8, 15 }) {
++        if (level >= gate) mask |= 1U << bit;
++        ++bit;
++    }
++    return mask;
++}
++inline bool Valid(const Progression &s, unsigned level)
++{
++    if (s[0] != 0x52 || s[1] != 2 || s[2] != 2 || s[3] < 1 || s[3] > level || s[9] != Unlocks(s[3])) return false;
++    unsigned spent = 0;
++    for (unsigned i = 5; i <= 8; ++i) {
++        if (s[i] > 1) return false; // Only implemented choices may be selected.
++        spent += s[i];
++    }
++    if ((s[6] && s[3] < 4) || (s[7] && s[3] < 8) || (s[8] && s[3] < 15)) return false;
++    for (unsigned i = 10; i < s.size(); ++i) if (s[i] != 0) return false;
++    return s[4] + spent == Earned(s[3]);
++}
++inline void Advance(Progression &s, uint8_t level)
++{
++    if (s[0] == 0) s = { 0x52, 2, 2, 1, 0, 0, 0, 0, 0, 1 };
++    if (!Valid(s, std::max<unsigned>(level, s[3])) || level <= s[3]) return;
++    s[4] += static_cast<uint8_t>(Earned(level) - Earned(s[3]));
++    s[3] = level;
++    s[9] = Unlocks(level);
++}
++inline bool Choose(Progression &s, unsigned level, unsigned slot, unsigned choice)
++{
++    if (!Valid(s, level) || slot > 3 || choice != 1 || s[4] == 0 || s[5 + slot] != 0) return false;
++    constexpr std::array<unsigned, 4> Gates { 1, 4, 8, 15 };
++    if (s[3] < Gates[slot]) return false;
++    s[5 + slot] = 1;
++    --s[4];
++    return true;
++}
++} // namespace devilution::rtt
+diff --git a/CMake/Tests.cmake b/CMake/Tests.cmake
+--- a/CMake/Tests.cmake
++++ b/CMake/Tests.cmake
+@@ -26,6 +26,7 @@
+   effects_test
+   inv_test
+   items_test
++  rtt_phase4_test
+   math_test
+   missiles_test
+   multi_logging_test
+@@ -230,3 +231,5 @@
+ target_link_dependencies(utf8_test PRIVATE libdevilutionx_utf8)
+ 
+ target_include_directories(writehero_test PRIVATE 3rdParty/PicoSHA2)
++
++target_link_dependencies(rtt_phase4_test PRIVATE libdevilutionx_so)
+diff --git a/test/rtt_phase4_test.cpp b/test/rtt_phase4_test.cpp
+new file mode 100644
+--- /dev/null
++++ b/test/rtt_phase4_test.cpp
+@@ -0,0 +1,155 @@
++#include <gtest/gtest.h>
++#include <array>
++#include <cstring>
++#include <set>
++#include "engine/assets.hpp"
++#include "game_mode.hpp"
++#include "multi.h"
++#include "items.h"
++#include "mods/mod_identity.h"
++#include "pack.h"
++#include "player.h"
++#include "spells.h"
++#include "tables/monstdat.h"
++#include "tables/playerdat.hpp"
++
++namespace devilution {
++namespace {
++class RttPhase4 : public ::testing::Test {
++protected:
++    void SetUp() override
++    {
++        LoadItemData(); LoadSpellData(); LoadPlayerDataFiles(); LoadMonsterData();
++        Players.resize(2); MyPlayer = &Players[0]; MyPlayerId = 0;
++        gbIsSpawn = false; gbIsHellfire = false; gbIsMultiplayer = false;
++        ModIdentifier mod {}; mod.name = "rtt"; mod.manifest.saveExtension = "rtt";
++        ActiveModIdentifiers = { mod };
++        CreatePlayer(*MyPlayer, HeroClass::Sorcerer);
++        MyPlayer->_pBaseStr = MyPlayer->_pBaseMag = MyPlayer->_pBaseDex = 100;
++    }
++    void TearDown() override { ActiveModIdentifiers.clear(); }
++    _item_indexes Base(ItemType type)
++    {
++        for (size_t i = 0; i < AllItemsList.size(); ++i)
++            if (AllItemsList[i].itype == type && AllItemsList[i].dropRate > 0) return static_cast<_item_indexes>(i);
++        ADD_FAILURE() << "Missing base type"; return IDI_SHORTSTAFF;
++    }
++    Item Make(ItemType type, uint32_t rarity, std::array<unsigned,4> codes, unsigned level = 20)
++    {
++        uint32_t metadata = 0x80000000U | (rarity << 29);
++        for (unsigned i = 0; i < 4; ++i) metadata |= codes[i] << (5 + 6*i);
++        Item item {}; RecreateItem(*MyPlayer, item, Base(type), level | CF_UPER1, 12345, 0, metadata);
++        item._iIdentified = true; item._iStatFlag = true; return item;
++    }
++    void Same(const Item &a, const Item &b)
++    {
++        EXPECT_EQ(a.dwBuff,b.dwBuff); EXPECT_EQ(a.IDidx,b.IDidx); EXPECT_EQ(a._iSeed,b._iSeed);
++        EXPECT_EQ(a._iCreateInfo,b._iCreateInfo); EXPECT_STREQ(a._iIName,b._iIName);
++        EXPECT_EQ(a._iPLDam,b._iPLDam); EXPECT_EQ(a._iPLAC,b._iPLAC);
++        EXPECT_EQ(a._iPLFR,b._iPLFR); EXPECT_EQ(a._iPLLR,b._iPLLR); EXPECT_EQ(a._iPLVit,b._iPLVit);
++    }
++    void RoundTrip(const Item &a)
++    {
++        ItemPack save {}; PackItem(save,a,false); Item b {}; UnPackItem(save,*MyPlayer,b,false); Same(a,b);
++        ItemNetPack net {}; PackNetItem(a,net);
++        Item c {},d {}; ASSERT_TRUE(UnPackNetItem(*MyPlayer,net,c)); ASSERT_TRUE(UnPackNetItem(Players[1],net,d));
++        Same(a,c); Same(c,d);
++    }
++};
++TEST_F(RttPhase4, LegacyNoMarker)
++{
++    Item a {}; RecreateItem(*MyPlayer,a,Base(ItemType::Sword),20 | CF_UPER1,12345,0,0);
++    EXPECT_EQ(a.dwBuff & 0x80000000U,0U); RoundTrip(a);
++}
++TEST_F(RttPhase4, RareEveryCountAndTier)
++{
++    for (unsigned tier=0;tier<3;++tier) for (unsigned count=1;count<=4;++count) {
++        std::array<unsigned,4> codes {1+tier,13+tier,7+tier,10+tier};
++        for (unsigned i=count;i<4;++i) codes[i]=0;
++        RoundTrip(Make(ItemType::Sword,1,codes));
++    }
++}
++TEST_F(RttPhase4, FreshDropsNamedAndRareCounts)
++{
++    std::set<unsigned> counts; std::set<std::string> names;
++    for (auto type : {ItemType::Staff,ItemType::Shield,ItemType::LightArmor}) {
++        for (uint32_t seed=1;seed<3000;++seed) {
++            Item a {}; SetupAllItems(*MyPlayer,a,Base(type),seed,20,1,false,false);
++            const unsigned rarity=(a.dwBuff >> 29)&3;
++            if ((a.dwBuff & 0x80000000U)==0) continue;
++            if (rarity>=2) names.insert(a._iIName);
++            else { unsigned count=0; for(unsigned i=0;i<4;++i) count+=((a.dwBuff>>(5+6*i))&63)!=0; counts.insert(count); }
++        }
++    }
++    EXPECT_EQ(counts,(std::set<unsigned>{1,2,3,4}));
++    for(auto name:{"Ashen Covenant","Boneward","Gravewhisper","Ossuary Guard","Ossuary Vestment"}) EXPECT_TRUE(names.contains(name));
++}
++TEST_F(RttPhase4, UniqueRoundTrip)
++{
++    RoundTrip(Make(ItemType::Staff,3,{2,60,8,0},12));
++    RoundTrip(Make(ItemType::Shield,3,{5,61,11,0},15));
++    auto robe=Make(ItemType::LightArmor,3,{5,62,9,0},18); EXPECT_GE(robe._iPLFR,19); RoundTrip(robe);
++}
++TEST_F(RttPhase4, SetPieceRoundTripEquipUnequip)
++{
++    auto guard=Make(ItemType::Shield,2,{5,61,8,11}); auto robe=Make(ItemType::LightArmor,2,{5,62,8,11});
++    RoundTrip(guard); RoundTrip(robe);
++    MyPlayer->InvBody[INVLOC_HAND_LEFT]=guard; MyPlayer->InvBody[INVLOC_HAND_RIGHT]=guard;
++    CalcPlrItemVals(*MyPlayer,false); EXPECT_EQ(MyPlayer->rttBoneArmorRank,0);
++    MyPlayer->InvBody[INVLOC_HAND_RIGHT].clear(); MyPlayer->InvBody[INVLOC_CHEST]=robe;
++    CalcPlrItemVals(*MyPlayer,false); EXPECT_EQ(MyPlayer->rttBoneArmorRank,1);
++    const int fire=MyPlayer->_pFireResist;
++    CalcPlrItemVals(*MyPlayer,false); EXPECT_EQ(MyPlayer->_pFireResist,fire);
++    MyPlayer->InvBody[INVLOC_CHEST].clear(); CalcPlrItemVals(*MyPlayer,false); EXPECT_EQ(MyPlayer->rttBoneArmorRank,0);
++}
++TEST_F(RttPhase4, CraftRecipesAndFailureAtomicity)
++{
++    auto a=Make(ItemType::Sword,1,{1,13,7,10}); a._iDurability=7;
++    for(unsigned recipe=2;recipe<=4;++recipe) {
++        Item result {}; ASSERT_TRUE(RttPrepareCraft(*MyPlayer,a,recipe,0,result));
++        EXPECT_EQ(result.IDidx,a.IDidx); EXPECT_EQ(result._iCreateInfo,a._iCreateInfo); EXPECT_EQ(result._iSeed,a._iSeed); EXPECT_EQ(result._iDurability,7);
++        if(recipe!=2) EXPECT_EQ(result.dwBuff & ~0x7E0U,a.dwBuff & ~0x7E0U);
++        RoundTrip(result);
++    }
++    Item result=a; EXPECT_FALSE(RttPrepareCraft(*MyPlayer,a,99,0,result)); Same(a,result);
++    EXPECT_FALSE(RttPrepareCraft(*MyPlayer,a,3,4,result)); Same(a,result);
++    MyPlayer->HoldItem=a; MyPlayer->_pNumInv=0; EXPECT_FALSE(RttCraftHeldRare(*MyPlayer,2,0)); Same(a,MyPlayer->HoldItem);
++    auto low=Make(ItemType::Sword,1,{1,0,7,0},1); EXPECT_FALSE(RttPrepareCraft(*MyPlayer,low,3,0,result));
++}
++TEST_F(RttPhase4, NecromancerCreateUnlockSaveChoices)
++{
++    ASSERT_EQ(MyPlayer->rttProgression[2],2);
++    for(unsigned level:{1,4,6,8,15}) {
++        MyPlayer->setCharacterLevel(level); EnsureRttNecromancerProgression(*MyPlayer);
++        EXPECT_EQ(MyPlayer->rttProgression[9],rtt::Unlocks(level));
++    }
++    const int spike=MyPlayer->GetSpellLevel(SpellID::HolyBolt), pact=MyPlayer->GetSpellLevel(SpellID::BloodStar);
++    const auto before=MyPlayer->rttProgression;
++    for(unsigned slot=0;slot<4;++slot) ASSERT_TRUE(RttChooseProgression(*MyPlayer,slot,1,false));
++    EXPECT_EQ(MyPlayer->GetSpellLevel(SpellID::HolyBolt),spike+2); EXPECT_EQ(MyPlayer->GetSpellLevel(SpellID::BloodStar),pact+1);
++    EXPECT_EQ(MyPlayer->rttProgression[6],1);
++    EXPECT_FALSE(RttChooseProgression(*MyPlayer,0,1,false)); EXPECT_FALSE(RttChooseProgression(*MyPlayer,0,2,false));
++    const auto selected=MyPlayer->rttProgression;
++    PlayerPack saved {}; PackPlayer(saved,*MyPlayer); UnPackPlayer(saved,Players[1]); EXPECT_EQ(Players[1].rttProgression,selected);
++    EnsureRttNecromancerProgression(Players[1]); EXPECT_EQ(Players[1].rttProgression,selected);
++    auto client=before; for(unsigned slot=0;slot<4;++slot) ASSERT_TRUE(rtt::Choose(client,15,slot,1)); EXPECT_EQ(client,selected);
++}
++TEST_F(RttPhase4, NormalXpMultiplierOnly)
++{
++    for(auto difficulty : {DIFF_NORMAL,DIFF_NIGHTMARE,DIFF_HELL}) {
++        sgGameInitInfo.nDifficulty = difficulty;
++        MyPlayer->_pExperience = 0;
++        MyPlayer->addExperience(100);
++        EXPECT_EQ(MyPlayer->_pExperience,difficulty == DIFF_NORMAL ? 150U : 100U);
++    }
++}
++TEST_F(RttPhase4, ArmorUpgradeReducesDamage)
++{
++    MyPlayer->setCharacterLevel(4); EnsureRttNecromancerProgression(*MyPlayer);
++    auto &p=*MyPlayer; p.pManaShield=true; p._pMana=p._pMaxMana=p._pManaBase=p._pMaxManaBase=10000;
++    ApplyPlrDamage(DamageType::Physical,p,10); const int baseline=10000-p._pMana;
++    ASSERT_TRUE(RttChooseProgression(p,1,1,false)); p._pMana=p._pManaBase=10000;
++    ApplyPlrDamage(DamageType::Physical,p,10); EXPECT_LT(10000-p._pMana,baseline);
++}
++} // namespace
++} // namespace devilution

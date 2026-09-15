@@ -48,8 +48,8 @@ def validate_features() -> None:
     save_schema = read_json("config/save-schema.json")
     if configured_save_version != int(save_schema.get("currentVersion", 0)):
         fail("features.ini saveSchemaVersion must match config/save-schema.json currentVersion")
-    if int(config["rtt"].get("networkProtocolVersion", "0")) != 1:
-        fail("networkProtocolVersion must remain 1 until a network migration is explicitly introduced")
+    if int(config["rtt"].get("networkProtocolVersion", "0")) != 2:
+        fail("networkProtocolVersion must be 2 for Phase 4 progression packets")
     for module in EXPECTED_MODULES:
         if config["modules"].get(module, "").lower() != "true":
             fail(f"Phase 2 module must be framework-enabled: {module}")
@@ -127,7 +127,7 @@ def validate_save_and_network() -> None:
         fail("save schema extension does not match manifest")
     if save.get("namespace") != manifest["mod"].get("programId"):
         fail("save schema namespace does not match manifest programId")
-    if network.get("protocolVersion") != 1 or network.get("baseline") != BASELINE:
+    if network.get("protocolVersion") != 2 or network.get("baseline") != BASELINE:
         fail("network policy protocol/baseline mismatch")
     for key in ("sameRttVersion", "sameEngineBaseline", "sameContentRegistry", "sameSaveSchema"):
         if network["requirements"].get(key) is not True:
