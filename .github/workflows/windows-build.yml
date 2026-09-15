@@ -168,6 +168,11 @@ jobs:
         shell: pwsh
         run: python scripts/verify-baseline.py
 
+      - name: Set up MSVC developer environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Build pinned DevilutionX with Visual Studio MSVC
         shell: pwsh
         env:

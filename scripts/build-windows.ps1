@@ -56,14 +56,26 @@ if ($Sol2Source) {
     Write-Host "Using prefetched sol2: $ResolvedSol2"
 }
 
-# Opt-in, not required: only wire the compiler launcher when sccache is on
-# PATH (CI installs it explicitly) so a developer workstation without it
-# builds exactly as before.
+# Opt-in, not required: only wire sccache in when it is on PATH (CI installs
+# it explicitly) so a developer workstation without it builds exactly as
+# before. CMAKE_<LANG>_COMPILER_LAUNCHER is a no-op here -- CMake only
+# implements that hook for the Makefile/Ninja generators, not the Visual
+# Studio (MSBuild) generator this script uses (-A x64 with no -G). Instead,
+# stand a renamed copy of sccache in for MSBuild's own ClCompile tool: sccache
+# recognizes it was invoked as "cl.exe" and resolves the real compiler itself
+# from PATH, which the CI job's msvc-dev-cmd step puts there.
 $Sccache = Get-Command sccache -ErrorAction SilentlyContinue
 if ($Sccache) {
-    $ConfigureArgs += "-DCMAKE_C_COMPILER_LAUNCHER=sccache"
-    $ConfigureArgs += "-DCMAKE_CXX_COMPILER_LAUNCHER=sccache"
-    Write-Host "sccache found: enabling compiler cache"
+    $WrapperDir = Join-Path ([System.IO.Path]::GetTempPath()) 'rtt-sccache-cl'
+    if (Test-Path $WrapperDir) {
+        Remove-Item -Recurse -Force $WrapperDir
+    }
+    New-Item -ItemType Directory -Force -Path $WrapperDir | Out-Null
+    Copy-Item $Sccache.Source (Join-Path $WrapperDir 'cl.exe') -Force
+
+    $VsGlobals = "CLToolExe=cl.exe;CLToolPath=$WrapperDir;TrackFileAccess=false;UseMultiToolTask=true"
+    $ConfigureArgs += "-DCMAKE_VS_GLOBALS=$VsGlobals"
+    Write-Host "sccache found: enabling MSBuild compiler cache via $WrapperDir"
 }
 else {
     Write-Host "sccache not found on PATH: building without a compiler cache"
