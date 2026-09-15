@@ -31,7 +31,7 @@
  #include "panels/ui_panels.hpp"
 --- a/Source/inv.cpp
 +++ b/Source/inv.cpp
-@@ -1166,4 +1166,27 @@
+@@ -1166,4 +1166,33 @@
  	    && item.isUsable();
  }
  
@@ -50,8 +50,14 @@
 +	CalcPlrInv(player, true);
 +
 +	if (&player == MyPlayer) {
-+		NetSendCmdChItem(false, INVLOC_HAND_LEFT, true);
-+		NetSendCmdChItem(false, INVLOC_HAND_RIGHT, true);
++		const auto syncHand = [&player](inv_body_loc location) {
++			if (player.InvBody[location].isEmpty())
++				NetSendCmdDelItem(false, location);
++			else
++				NetSendCmdChItem(false, location, true);
++		};
++		syncHand(INVLOC_HAND_LEFT);
++		syncHand(INVLOC_HAND_RIGHT);
 +		EventPlrMsg(FormatRuntime(_("Weapon set {:d}"), player.RttActiveWeaponSet + 1), UiFlags::ColorWhite);
 +	}
 +
