@@ -46,7 +46,7 @@ for path in (
 config = configparser.ConfigParser(interpolation=None)
 config.optionxform = str
 config.read(PROFILE, encoding="utf-8")
-if config.get("Mods", "return-to-tristram", fallback="").lower() != "true":
+if not config.getboolean("Mods", "return-to-tristram", fallback=False):
     fail("Classic+ profile must enable return-to-tristram")
 for key, expected in EXPECTED_GAME.items():
     actual = config.get("Game", key, fallback=None)

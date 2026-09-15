@@ -123,7 +123,7 @@ if (-not (Select-String -Path $WarriorLoadout -Pattern '^gold\t200$' -Quiet)) {
 $IniPath = Join-Path $ConfigDir "diablo.ini"
 @"
 [Mods]
-return-to-tristram=true
+return-to-tristram=1
 "@ | Set-Content -Path $IniPath -Encoding UTF8
 
 Write-Step "CLI preflight"

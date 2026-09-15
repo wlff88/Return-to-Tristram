@@ -30,7 +30,7 @@ required_script_tokens = (
     "--data-dir",
     "--save-dir",
     "--config-dir",
-    "return-to-tristram=true",
+    "return-to-tristram=1",
     "scripts/verify-baseline.py",
     "stage-mod.ps1",
     "rttSaveDetected",
