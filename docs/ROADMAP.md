@@ -73,9 +73,9 @@ This roadmap reflects the current single-engine Return to Tristram architecture.
 - [ ] Alternate weapon set / weapon swap
 - [ ] Advanced RTT item comparison tooltip (native floating info is enabled as baseline)
 - [x] Loot filter 2.0 with user-configurable rules/presets
-- [ ] Controller-first UX review
-- [ ] Quick inventory/stash transfer review
-- [ ] Gold handling QoL review
+- [x] Controller-first source/interaction review (runtime acceptance remains)
+- [x] Quick inventory/stash transfer review — reuse native Ctrl-click transfer
+- [x] Gold handling QoL review — auto-gold enabled; preserve 5000 stack cap for compatibility
 - [ ] Balance-safe item additions
 - [ ] Full Classic+ runtime regression pass
 
