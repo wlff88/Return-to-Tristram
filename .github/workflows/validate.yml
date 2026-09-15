@@ -53,6 +53,9 @@ jobs:
       - name: Validate Phase 4 itemization/progression foundation
         run: python scripts/validate-phase4-foundation.py
 
+      - name: Validate RTT Rare serialization round-trip
+        run: python scripts/validate-rtt-rare-roundtrip.py
+
       - name: Generate runtime tables
         run: python scripts/export-mod-data.py --output out/ci-mod
 
