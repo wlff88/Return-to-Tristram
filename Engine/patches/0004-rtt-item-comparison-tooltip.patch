@@ -1,0 +1,87 @@
+diff --git a/Source/items.cpp b/Source/items.cpp
+--- a/Source/items.cpp
++++ b/Source/items.cpp
+@@ -5159,6 +5159,75 @@ void DrawUniqueInfo(const Surface &out)
+ 	}
+ }
+ 
++namespace {
++
++const Item *GetRttComparisonItem(const Item &item)
++{
++	if (MyPlayer == nullptr || !item.isEquipment())
++		return nullptr;
++
++	int slot = -1;
++	if (item.isHelm()) {
++		slot = INVLOC_HEAD;
++	} else if (item.isShield()) {
++		slot = INVLOC_HAND_RIGHT;
++	} else if (item._itype == ItemType::Ring) {
++		const Item &leftRing = MyPlayer->InvBody[INVLOC_RING_LEFT];
++		const Item &rightRing = MyPlayer->InvBody[INVLOC_RING_RIGHT];
++		if (!leftRing.isEmpty() && &leftRing != &item)
++			return &leftRing;
++		if (!rightRing.isEmpty() && &rightRing != &item)
++			return &rightRing;
++		return nullptr;
++	} else if (item._itype == ItemType::Amulet) {
++		slot = INVLOC_AMULET;
++	} else if (item.isWeapon()) {
++		slot = INVLOC_HAND_LEFT;
++	} else if (item.isArmor()) {
++		slot = INVLOC_CHEST;
++	}
++
++	if (slot < 0)
++		return nullptr;
++	const Item &equipped = MyPlayer->InvBody[slot];
++	if (equipped.isEmpty() || &equipped == &item)
++		return nullptr;
++	return &equipped;
++}
++
++void PrintRttItemComparison(const Item &item)
++{
++	const Item *equipped = GetRttComparisonItem(item);
++	if (equipped == nullptr)
++		return;
++
++	AddItemInfoBoxString(StrCat(_("Equipped: "), equipped->getName()));
++
++	if (item.isWeapon()) {
++		AddItemInfoBoxString(FormatRuntime(_("vs equipped Damage: {:+d} to {:+d}"),
++		    item._iMinDam - equipped->_iMinDam, item._iMaxDam - equipped->_iMaxDam));
++	} else if (item.isArmor()) {
++		AddItemInfoBoxString(FormatRuntime(_("vs equipped Armor: {:+d}"), item._iAC - equipped->_iAC));
++	}
++
++	const int str = item._iPLStr - equipped->_iPLStr;
++	const int mag = item._iPLMag - equipped->_iPLMag;
++	const int dex = item._iPLDex - equipped->_iPLDex;
++	const int vit = item._iPLVit - equipped->_iPLVit;
++	if (str != 0 || mag != 0 || dex != 0 || vit != 0) {
++		AddItemInfoBoxString(FormatRuntime(_("vs equipped STR {:+d} MAG {:+d} DEX {:+d} VIT {:+d}"), str, mag, dex, vit));
++	}
++
++	const int fire = item._iPLFR - equipped->_iPLFR;
++	const int lightning = item._iPLLR - equipped->_iPLLR;
++	const int magic = item._iPLMR - equipped->_iPLMR;
++	if (fire != 0 || lightning != 0 || magic != 0) {
++		AddItemInfoBoxString(FormatRuntime(_("vs equipped Resist: Fire {:+d} Lightning {:+d} Magic {:+d}"), fire, lightning, magic));
++	}
++}
++
++} // namespace
++
+ void PrintItemDetails(const Item &item)
+ {
+ 	if (HeadlessMode)
+@@ -5205,6 +5274,7 @@ void PrintItemDetails(const Item &item)
+ 		curruitem = item;
+ 	}
+ 	PrintItemInfo(item);
++	PrintRttItemComparison(item);
+ }
+ 
+ void PrintItemDur(const Item &item)
