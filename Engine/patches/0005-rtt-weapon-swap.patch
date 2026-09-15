@@ -1,0 +1,216 @@
+--- a/Source/player.h
++++ b/Source/player.h
+@@ -216,5 +216,7 @@
+ 	char _pName[PlayerNameLength];
+ 	Item InvBody[NUM_INVLOC];
++	Item RttAlternateWeaponSet[2];
++	uint8_t RttActiveWeaponSet = 0;
+ 	Item InvList[InventoryGridCells];
+ 	Item SpdList[MaxBeltItems];
+ 	Item HoldItem;
+--- a/Source/inv.h
++++ b/Source/inv.h
+@@ -178,5 +178,11 @@
+ void ReorganizeInventory(Player &player);
+ 
+ /**
++ * @brief Swap the equipped main/off-hand pair with RTT's alternate weapon set.
++ * @return True when the swap completed.
++ */
++bool SwapWeaponSet(Player &player);
++
++/**
+  * @brief Calculate the maximum additional gold that may fit in the user's inventory
+  */
+--- a/Source/inv.cpp
++++ b/Source/inv.cpp
+@@ -35,3 +35,4 @@
+ #include "minitext.h"
++#include "msg.h"
+ #include "options.h"
+ #include "panels/ui_panels.hpp"
+--- a/Source/inv.cpp
++++ b/Source/inv.cpp
+@@ -1166,4 +1166,33 @@
+ 	    && item.isUsable();
+ }
+ 
++bool SwapWeaponSet(Player &player)
++{
++	if (!player.HoldItem.isEmpty()) {
++		if (&player == MyPlayer)
++			EventPlrMsg(_("Cannot swap weapon sets while holding an item."), UiFlags::ColorRed);
++		return false;
++	}
++
++	std::swap(player.InvBody[INVLOC_HAND_LEFT], player.RttAlternateWeaponSet[0]);
++	std::swap(player.InvBody[INVLOC_HAND_RIGHT], player.RttAlternateWeaponSet[1]);
++	player.RttActiveWeaponSet ^= 1;
++
++	CalcPlrInv(player, true);
++
++	if (&player == MyPlayer) {
++		const auto syncHand = [&player](inv_body_loc location) {
++			if (player.InvBody[location].isEmpty())
++				NetSendCmdDelItem(false, location);
++			else
++				NetSendCmdChItem(false, location, true);
++		};
++		syncHand(INVLOC_HAND_LEFT);
++		syncHand(INVLOC_HAND_RIGHT);
++		EventPlrMsg(FormatRuntime(_("Weapon set {:d}"), player.RttActiveWeaponSet + 1), UiFlags::ColorWhite);
++	}
++
++	return true;
++}
++
+ void FreeInvGFX()
+--- a/Source/loadsave.h
++++ b/Source/loadsave.h
+@@ -26,4 +26,5 @@
+ void LoadHotkeys();
+ void LoadHeroItems(Player &player);
++void LoadRttWeaponSet(uint32_t saveNum, Player &player);
+ /**
+  * @brief Remove invalid inventory items from the inventory grid
+--- a/Source/loadsave.h
++++ b/Source/loadsave.h
+@@ -39,3 +39,4 @@
+ void SaveHotkeys(SaveWriter &saveWriter, const Player &player);
+ void SaveHeroItems(SaveWriter &saveWriter, Player &player);
++void SaveRttWeaponSet(SaveWriter &saveWriter, const Player &player);
+ void SaveGameData(SaveWriter &saveWriter);
+--- a/Source/loadsave.cpp
++++ b/Source/loadsave.cpp
+@@ -35,3 +35,4 @@
+ #include "mpq/mpq_common.hpp"
++#include "pack.h"
+ #include "pfile.h"
+ #include "plrmsg.h"
+--- a/Source/loadsave.cpp
++++ b/Source/loadsave.cpp
+@@ -2392,4 +2392,60 @@
+ 	file.WriteLE<uint8_t>(static_cast<uint8_t>(player._pRSplType));
+ }
+ 
++namespace {
++
++constexpr uint8_t RttWeaponSetVersion = 1;
++constexpr char RttWeaponSetFileName[] = "rtt_weapon_set";
++
++} // namespace
++
++void LoadRttWeaponSet(uint32_t saveNum, Player &player)
++{
++	player.RttAlternateWeaponSet[0].clear();
++	player.RttAlternateWeaponSet[1].clear();
++	player.RttActiveWeaponSet = 0;
++
++	LoadHelper file(OpenSaveArchive(saveNum), RttWeaponSetFileName);
++	if (!file.IsValid())
++		return;
++
++	const uint8_t version = file.NextLE<uint8_t>();
++	if (version != RttWeaponSetVersion)
++		return;
++
++	const bool isHellfireSave = file.NextBool8();
++	const uint8_t activeSet = file.NextLE<uint8_t>();
++	if (activeSet <= 1)
++		player.RttActiveWeaponSet = activeSet;
++
++	for (Item &item : player.RttAlternateWeaponSet) {
++		if (!file.IsValid(sizeof(ItemPack))) {
++			player.RttAlternateWeaponSet[0].clear();
++			player.RttAlternateWeaponSet[1].clear();
++			player.RttActiveWeaponSet = 0;
++			return;
++		}
++		ItemPack packedItem {};
++		file.NextBytes(&packedItem, sizeof(packedItem));
++		UnPackItem(packedItem, player, item, isHellfireSave);
++		RemoveInvalidItem(item);
++	}
++}
++
++void SaveRttWeaponSet(SaveWriter &saveWriter, const Player &player)
++{
++	constexpr size_t FileSize = 3 * sizeof(uint8_t) + 2 * sizeof(ItemPack);
++	SaveHelper file(saveWriter, RttWeaponSetFileName, FileSize);
++
++	file.WriteLE<uint8_t>(RttWeaponSetVersion);
++	file.WriteLE<uint8_t>(gbIsHellfire ? 1 : 0);
++	file.WriteLE<uint8_t>(player.RttActiveWeaponSet <= 1 ? player.RttActiveWeaponSet : 0);
++
++	for (const Item &item : player.RttAlternateWeaponSet) {
++		ItemPack packedItem {};
++		PackItem(packedItem, item, gbIsHellfire);
++		file.WriteBytes(&packedItem, sizeof(packedItem));
++	}
++}
++
+ void LoadHeroItems(Player &player)
+--- a/Source/pfile.cpp
++++ b/Source/pfile.cpp
+@@ -538,5 +538,7 @@
+ 	if (!gbVanilla) {
+ 		SaveHotkeys(saveWriter, myPlayer);
+ 		SaveHeroItems(saveWriter, myPlayer);
++		if (GetActiveModSaveExtension() == "rtt")
++			SaveRttWeaponSet(saveWriter, myPlayer);
+ 	}
+ }
+--- a/Source/pfile.cpp
++++ b/Source/pfile.cpp
+@@ -767,6 +767,8 @@
+ 	if (!gbVanilla) {
+ 		SaveHotkeys(saveWriter, player);
+ 		SaveHeroItems(saveWriter, player);
++		if (GetActiveModSaveExtension() == "rtt")
++			SaveRttWeaponSet(saveWriter, player);
+ 	}
+ 
+ 	return true;
+--- a/Source/pfile.cpp
++++ b/Source/pfile.cpp
+@@ -800,5 +800,7 @@
+ 	UnPackPlayer(pkplr, player);
+ 	LoadHeroItems(player);
++	if (GetActiveModSaveExtension() == "rtt")
++		LoadRttWeaponSet(saveNum, player);
+ 	RemoveAllInvalidItems(player);
+ 	CalcPlrInv(player, false);
+ }
+--- a/Source/diablo.cpp
++++ b/Source/diablo.cpp
+@@ -2134,3 +2134,13 @@
++	options.Keymapper.AddAction(
++	    "WeaponSwap",
++	    N_("Swap weapon set"),
++	    N_("Switch between the two equipped weapon sets."),
++	    'W',
++	    [] {
++		    SwapWeaponSet(*MyPlayer);
++	    },
++	    nullptr,
++	    [] { return CanPlayerTakeAction() && !IsPlayerInStore(); });
+ 	options.Keymapper.AddAction(
+ 	    "SortInv",
+ 	    N_("Sort Inventory"),
+--- a/Source/diablo.cpp
++++ b/Source/diablo.cpp
+@@ -2343,4 +2343,14 @@
+ 	    nullptr,
+ 	    []() { return CanPlayerTakeAction() && !InGameMenu(); });
+ 	options.Padmapper.AddAction(
++	    "WeaponSwap",
++	    N_("Swap weapon set"),
++	    N_("Switch between the two equipped weapon sets."),
++	    { ControllerButton_BUTTON_BACK, ControllerButton_BUTTON_Y },
++	    [] {
++		    SwapWeaponSet(*MyPlayer);
++	    },
++	    nullptr,
++	    []() { return CanPlayerTakeAction() && !InGameMenu() && !IsPlayerInStore(); });
++	options.Padmapper.AddAction(
+ 	    "QuestLog",
