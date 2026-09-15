@@ -111,8 +111,11 @@ for class_def in classes["entries"]:
         if skill_id not in skill_ids:
             raise SystemExit(f"class {class_def['stableId']} references unknown skill {skill_id}")
 
+allowed_systems = set(recipes["systems"]["values"])
 for recipe in recipes["entries"]:
     require_registered(recipe["stableId"], "recipe")
+    if recipe["system"] not in allowed_systems:
+        raise SystemExit(f"recipe {recipe['stableId']} has unknown system {recipe['system']!r}")
 
 if save_schema.get("schemaVersion") != 2 or save_schema.get("currentVersion") != 2:
     raise SystemExit("Phase 4 requires Save Schema v2")

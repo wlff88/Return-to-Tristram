@@ -1,11 +1,16 @@
 {
   "schemaVersion": 1,
   "currencyModel": "inventory-gold",
+  "systems": {
+    "values": ["blacksmith", "alchemy", "runes", "corruption"],
+    "policy": "every recipe declares exactly one system; Alchemy/Runes/Corruption have no recipes yet -- adding one is a resource-economy/mechanic decision (new currencies/materials? sockets? risk-reward rules?), not something to invent ad hoc. See docs/PHASE4_ITEMISATION_SKILLS_CLASSES.md's crafting section."
+  },
   "entries": [
     {
       "stableId": "RTT_RECIPE_0002",
       "symbol": "REFORGE_RARE",
       "name": "Reforge Rare",
+      "system": "blacksmith",
       "target": "rtt-rare-equipment",
       "operation": "reroll-all-affixes",
       "preserve": [
@@ -29,6 +34,7 @@
       "stableId": "RTT_RECIPE_0003",
       "symbol": "RAISE_AFFIX_TIER",
       "name": "Raise Affix Tier",
+      "system": "blacksmith",
       "target": "rtt-rare-equipment",
       "operation": "upgrade-one-affix-tier",
       "constraints": [
@@ -56,6 +62,7 @@
       "stableId": "RTT_RECIPE_0004",
       "symbol": "REROLL_AFFIX_SLOT",
       "name": "Reroll Affix Slot",
+      "system": "blacksmith",
       "target": "rtt-rare-equipment",
       "operation": "reroll-one-affix-slot",
       "preserve": [
