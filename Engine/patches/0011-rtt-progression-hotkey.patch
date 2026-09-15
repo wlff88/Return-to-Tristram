@@ -24,7 +24,7 @@ diff --git a/Source/player.cpp b/Source/player.cpp
 @@ -2409,6 +2410,24 @@ bool RttChooseProgression(Player &player, unsigned slot, unsigned choice, bool b
      return true;
  }
-
+ 
 +bool RttSpendNextProgressionPoint(Player &player)
 +{
 +    // There is currently only one implemented choice per slot (rtt::Choose()
@@ -107,3 +107,4 @@ diff --git a/test/rtt_phase4_test.cpp b/test/rtt_phase4_test.cpp
 +}
  } // namespace
  } // namespace devilution
+
