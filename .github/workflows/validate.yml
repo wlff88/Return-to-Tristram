@@ -41,6 +41,9 @@ jobs:
       - name: Validate item comparison tooltip
         run: python scripts/validate-item-tooltip.py
 
+      - name: Validate weapon swap
+        run: python scripts/validate-weapon-swap.py
+
       - name: Generate runtime tables
         run: python scripts/export-mod-data.py --output out/ci-mod
 
