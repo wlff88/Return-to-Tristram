@@ -42,7 +42,7 @@ def run_git(
 
 
 def normalize_patch_boundaries(patch: pathlib.Path) -> pathlib.Path:
-    """Return a temporary patch with explicit diff boundaries for each file."""
+    """Return a temporary patch with explicit diff boundaries and a valid EOF."""
     lines = patch.read_text(encoding="utf-8").splitlines(keepends=True)
     normalized: list[str] = []
 
@@ -54,6 +54,10 @@ def normalize_patch_boundaries(patch: pathlib.Path) -> pathlib.Path:
                 normalized.append(f"diff --git {old_path} {new_path}\n")
         normalized.append(line)
 
+    normalized_text = "".join(normalized)
+    if normalized_text and not normalized_text.endswith("\n"):
+        normalized_text += "\n"
+
     handle = tempfile.NamedTemporaryFile(
         mode="w",
         encoding="utf-8",
@@ -63,7 +67,7 @@ def normalize_patch_boundaries(patch: pathlib.Path) -> pathlib.Path:
         delete=False,
     )
     try:
-        handle.write("".join(normalized))
+        handle.write(normalized_text)
     finally:
         handle.close()
     return pathlib.Path(handle.name)
