@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 1,
-  "currentVersion": 1,
+  "schemaVersion": 2,
+  "currentVersion": 2,
   "minimumSupportedVersion": 1,
   "saveExtension": "rtt",
   "namespace": "RTRM",
@@ -8,13 +8,35 @@
     {"name":"rtt_version","type":"integer","required":true},
     {"name":"feature_flags","type":"object","required":true},
     {"name":"content_ids","type":"object","required":true},
-    {"name":"module_state","type":"object","required":true}
+    {"name":"module_state","type":"object","required":true},
+    {"name":"itemization_state","type":"object","required":true},
+    {"name":"progression_state","type":"object","required":true}
   ],
-  "migrations": [],
+  "migrations": [
+    {
+      "from": 1,
+      "to": 2,
+      "name": "phase4_itemization_and_progression_state",
+      "defaults": {
+        "itemization_state": {
+          "metadata_version": 1,
+          "compact_affix_map_version": 1
+        },
+        "progression_state": {
+          "class_id": null,
+          "skill_points": 0,
+          "skills": {},
+          "passives": {}
+        }
+      }
+    }
+  ],
   "policy": {
     "forwardCompatibility": "reject-newer-schema",
     "unknownFields": "preserve-when-possible",
     "generatedContentRequiresStableId": true,
-    "releasedIdsMayNotBeReused": true
+    "releasedIdsMayNotBeReused": true,
+    "compactAffixCodesAreAppendOnly": true,
+    "itemMetadataBitLayoutChangesRequireMigration": true
   }
 }
