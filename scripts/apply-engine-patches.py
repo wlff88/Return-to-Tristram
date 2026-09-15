@@ -14,11 +14,7 @@ PATCH_DIR = ROOT / "Engine" / "patches"
 # DevilutionX currently contains a mix of LF and CRLF source files. RTT patch
 # files are stored with LF, so context matching must tolerate EOL-only
 # whitespace differences while still requiring the actual source text to match.
-#
-# Several RTT patches are maintained manually after follow-up edits. --recount
-# makes git derive hunk sizes from the hunk bodies instead of trusting stale
-# line counts in @@ headers; context still has to match the pinned baseline.
-PATCH_MATCH_ARGS = ["--recount", "--ignore-space-change", "--ignore-whitespace"]
+PATCH_MATCH_ARGS = ["--ignore-space-change", "--ignore-whitespace"]
 
 
 def run_git(
@@ -36,8 +32,27 @@ def run_git(
     )
 
 
-def apply_args(*extra: str) -> list[str]:
-    return ["apply", *PATCH_MATCH_ARGS, *extra]
+def run_apply(
+    patch: pathlib.Path,
+    *,
+    cwd: pathlib.Path,
+    check: bool = False,
+    reverse: bool = False,
+) -> subprocess.CompletedProcess[str]:
+    flags = [*PATCH_MATCH_ARGS]
+    if reverse:
+        flags.append("--reverse")
+    if check:
+        flags.append("--check")
+
+    result = run_git(["apply", *flags, str(patch)], cwd=cwd)
+    if result.returncode == 0 or "corrupt patch" not in result.stderr.lower():
+        return result
+
+    # Some newer RTT patches were edited manually after generation and can have
+    # stale @@ line counts. Only those malformed patches should use --recount;
+    # applying it globally changes matching behavior for older valid patches.
+    return run_git(["apply", "--recount", *flags, str(patch)], cwd=cwd)
 
 
 def check_patch_series(patches: list[pathlib.Path]) -> int:
@@ -53,9 +68,9 @@ def check_patch_series(patches: list[pathlib.Path]) -> int:
         try:
             for patch in patches:
                 rel = patch.relative_to(ROOT)
-                forward = run_git(apply_args("--check", str(patch)), cwd=worktree)
+                forward = run_apply(patch, cwd=worktree, check=True)
                 if forward.returncode == 0:
-                    applied = run_git(apply_args(str(patch)), cwd=worktree)
+                    applied = run_apply(patch, cwd=worktree)
                     if applied.returncode != 0:
                         print(f"ERROR: {rel} passed --check but failed while applying validation series", file=sys.stderr)
                         print(applied.stderr, file=sys.stderr)
@@ -63,7 +78,7 @@ def check_patch_series(patches: list[pathlib.Path]) -> int:
                     print(f"OK: {rel} applies cleanly in series")
                     continue
 
-                reverse = run_git(apply_args("--reverse", "--check", str(patch)), cwd=worktree)
+                reverse = run_apply(patch, cwd=worktree, check=True, reverse=True)
                 if reverse.returncode == 0:
                     print(f"OK: {rel} is already applied in series")
                     continue
@@ -99,16 +114,16 @@ def main() -> int:
 
     for patch in patches:
         rel = patch.relative_to(ROOT)
-        forward = run_git(apply_args("--check", str(patch)))
+        forward = run_apply(patch, cwd=ENGINE, check=True)
         if forward.returncode == 0:
-            applied = run_git(apply_args(str(patch)))
+            applied = run_apply(patch, cwd=ENGINE)
             if applied.returncode != 0:
                 print(applied.stderr, file=sys.stderr)
                 return applied.returncode
             print(f"APPLIED: {rel}")
             continue
 
-        reverse = run_git(apply_args("--reverse", "--check", str(patch)))
+        reverse = run_apply(patch, cwd=ENGINE, check=True, reverse=True)
         if reverse.returncode == 0:
             print(f"OK: {rel} is already applied")
             continue
