@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "policy": "append-only",
+  "numericSuffixWidth": 4,
+  "namespaces": {
+    "item": {"prefix": "RTT_ITEM", "min": 1, "max": 9999},
+    "affix": {"prefix": "RTT_AFFIX", "min": 1, "max": 9999},
+    "unique": {"prefix": "RTT_UNIQUE", "min": 1, "max": 9999},
+    "monster": {"prefix": "RTT_MONSTER", "min": 1, "max": 9999},
+    "spell": {"prefix": "RTT_SPELL", "min": 1, "max": 9999},
+    "class": {"prefix": "RTT_CLASS", "min": 1, "max": 999},
+    "quest": {"prefix": "RTT_QUEST", "min": 1, "max": 9999},
+    "boss": {"prefix": "RTT_BOSS", "min": 1, "max": 9999},
+    "recipe": {"prefix": "RTT_RECIPE", "min": 1, "max": 9999},
+    "abyss_modifier": {"prefix": "RTT_ABYSSMOD", "min": 1, "max": 9999}
+  },
+  "entries": [
+    {"id":"RTT_ITEM_0001","namespace":"item","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."},
+    {"id":"RTT_AFFIX_0001","namespace":"affix","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."},
+    {"id":"RTT_UNIQUE_0001","namespace":"unique","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."},
+    {"id":"RTT_MONSTER_0001","namespace":"monster","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."},
+    {"id":"RTT_SPELL_0001","namespace":"spell","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."},
+    {"id":"RTT_CLASS_0001","namespace":"class","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."},
+    {"id":"RTT_QUEST_0001","namespace":"quest","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."},
+    {"id":"RTT_BOSS_0001","namespace":"boss","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."},
+    {"id":"RTT_RECIPE_0001","namespace":"recipe","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."},
+    {"id":"RTT_ABYSSMOD_0001","namespace":"abyss_modifier","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."}
+  ]
+}

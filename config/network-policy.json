@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "protocolVersion": 1,
+  "baseline": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+  "requirements": {
+    "sameRttVersion": true,
+    "sameEngineBaseline": true,
+    "sameContentRegistry": true,
+    "sameSaveSchema": true
+  },
+  "changeClasses": {
+    "presentation-only": {"networkReview":"not-required-if-no-gameplay-state","examples":["item labels","resistance text"]},
+    "data-gameplay": {"networkReview":"required","examples":["items","affixes","monsters","spells","classes"]},
+    "stateful-gameplay": {"networkReview":"required-plus-determinism-test","examples":["quests","crafting","boss phases","abyss"]},
+    "engine-hook": {"networkReview":"required-if-hook-observes-or-mutates-gameplay-state","examples":["RNG","serialization","network packets"]}
+  },
+  "forbiddenPatterns": [
+    "client-only gameplay mutation",
+    "wall-clock or OS-random gameplay RNG",
+    "unstable row-index identity for RTT content",
+    "host/client divergent feature flags"
+  ]
+}

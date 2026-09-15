@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "currentVersion": 1,
+  "minimumSupportedVersion": 1,
+  "saveExtension": "rtt",
+  "namespace": "RTRM",
+  "fields": [
+    {"name":"rtt_version","type":"integer","required":true},
+    {"name":"feature_flags","type":"object","required":true},
+    {"name":"content_ids","type":"object","required":true},
+    {"name":"module_state","type":"object","required":true}
+  ],
+  "migrations": [],
+  "policy": {
+    "forwardCompatibility": "reject-newer-schema",
+    "unknownFields": "preserve-when-possible",
+    "generatedContentRequiresStableId": true,
+    "releasedIdsMayNotBeReused": true
+  }
+}
