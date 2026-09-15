@@ -80,8 +80,9 @@ The development version therefore remains `0.1.0-dev`. Promotion to the first Cl
 
 1. keep Phase 1/Phase 3 real-PC acceptance as a deferred release gate;
 2. get real Windows/controller hands on a Necromancer save and play it through the original campaign (Tristram -> Diablo) to close Phase 4's runtime exit criterion;
-3. extend the Rare engine from the current single-item-type prototypes (Sword/Staff/Shield/LightArmor) to the full base-item catalogue;
-4. add a player-facing way to call `RttChooseProgression()` — it exists and is CI-tested, but nothing calls it outside the test yet (no menu/hotkey UI), so a real player has no way to spend a Necromancer upgrade point;
-5. begin Phase 5 (Resurrected campaign) planning once the above close out Phase 4.
+3. ~~extend the Rare engine from the current single-item-type prototypes (Sword/Staff/Shield/LightArmor) to the full base-item catalogue~~ — **done**: `BuildRttRareCodes`/`IsRttAffixCompatible` were already type-agnostic; `RttPhase4.RareRoundTripAcrossAllEquipmentTypes` now proves the round-trip for Axe/Bow/Mace/Helm/MediumArmor/HeavyArmor/Ring/Amulet too, and `RttPhase4.JewelryNeverGetsArmorClassAffix` documents the intentional exclusion of the armor-class affix family on Ring/Amulet;
+4. ~~add a player-facing way to call `RttChooseProgression()`~~ — **done**: F4 hotkey ([PR #29](https://github.com/wlff88/Return-to-Tristram/pull/29)) spends the next available progression point, plus a D2-style waypoint fast-travel panel ([PR #31](https://github.com/wlff88/Return-to-Tristram/pull/31), M key in town);
+5. begin Phase 5 (Resurrected campaign) planning once the above close out Phase 4 — note this touches gameplay direction/lore/scope and should be scoped with the user rather than decided unilaterally;
+6. Windows CI build time: sccache compiler cache wired into the MSVC job ([PR #32](https://github.com/wlff88/Return-to-Tristram/pull/32)) to cut the ~15-29 min cold build down on cache hits.
 
 See `docs/PHASE2_MOD_FRAMEWORK.md`, `docs/PHASE3_CLASSIC_PLUS.md`, `docs/PHASE3_RUNTIME_ACCEPTANCE.md`, `docs/PHASE3_WEAPON_SWAP.md`, `docs/PHASE4_ITEMISATION_SKILLS_CLASSES.md`, `docs/MULTIPLAYER_COMPATIBILITY.md` and `docs/ROADMAP.md`.
