@@ -57,14 +57,30 @@ This prevents installing a newer RTT build from turning an old saved magic item 
 
 ## 4. Tiered affixes
 
-`Data/itemization/affixes.json` is the canonical initial affix catalog. Phase 4 starts with 12 immutable entries across four families:
+`Data/itemization/affixes.json` is the canonical affix catalog, currently 15 entries across five families, each tagged with one `category` from the taxonomy declared in that file's own `taxonomy.categories` list (`offensive`, `defensive`, `utility`, `resource`, `elemental`, `class`, `skill`, `endgame`, `corrupted`):
 
-- Gravebound T1–T3 — weapon damage;
-- Stalwart T1–T3 — armor;
-- of Embers T1–T3 — fire resistance;
-- of Storms T1–T3 — lightning resistance.
+- Gravebound T1–T3 — weapon damage (`offensive`);
+- Stalwart T1–T3 — armor (`defensive`);
+- of Embers T1–T3 — fire resistance (`elemental`);
+- of Storms T1–T3 — lightning resistance (`elemental`);
+- Marrow T1–T3 — vitality (`resource`).
+
+Four categories (`utility`, `class`, `skill`, `endgame`) and one reserved for the Abyss/corruption endgame layer (`corrupted`) have no affixes yet — the taxonomy exists so they can be added later, but adding one is a stat-pool/balance decision (exact values, weights, tags), not something to invent unprompted.
 
 The engine slice may initially generate fewer than four affixes per item, but the serialized layout supports four slots from day one so future 2-prefix/2-suffix Rares do not require a destructive format change.
+
+### How to add a new affix family (cookbook)
+
+`Data/itemization/affixes.json` is the design source of truth, but it is **not** parsed by the engine at runtime — the compact-code effect logic in `Source/items.cpp` is a separate, hand-written implementation that must be kept in sync by hand. Adding a new family (new compact codes, e.g. 16–18) touches exactly these functions, all in `Source/items.cpp`:
+
+1. `IsRttPrefixCode()` / `IsRttSuffixCode()` — add the new code range to whichever the family is.
+2. `RttAffixMinItemLevel()` — extend the `code > 15` bound to the new max code.
+3. `IsRttAffixCompatible()` — extend the `code <= 15` bound, and add an item-type gate if the family shouldn't apply to all equipment (mirroring the existing `code <= 3 -> isWeapon()` / `code <= 6 -> isArmor()||isShield()||isHelm()` pattern).
+4. `ApplyRttAffix()` — add the new `if (code >= X && code <= Y) { item._iPLWhatever += RttRoll(...); }` block (may need a new `Item` field if no existing one fits, which is itself a save-format question — see `docs/ENGINE_PATCH_POLICY.md` rule 8).
+5. `RttAffixLine()` — add the matching tooltip-text branch.
+6. `BuildRttRareCodes()`'s `families` array — decide whether the new family enters the 4-slot random-family rotation (today exactly 4 families are eligible per item: weapon-damage-or-armor, Marrow, of Embers, of Storms) and, if so, which existing family it displaces or how the rotation itself needs to change to pick among more than 4 candidates.
+
+Every one of these is a small, mechanical change once the stat values and item-type rules are decided — the decision itself (what the affix does, its tier curve, which items it applies to) is the part that needs sign-off, not the wiring.
 
 ## 5. Uniques, sets and crafting
 
