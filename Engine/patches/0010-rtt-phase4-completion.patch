@@ -791,7 +791,7 @@ diff --git a/test/rtt_phase4_test.cpp b/test/rtt_phase4_test.cpp
 new file mode 100644
 --- /dev/null
 +++ b/test/rtt_phase4_test.cpp
-@@ -0,0 +1,155 @@
+@@ -0,0 +1,168 @@
 +#include <gtest/gtest.h>
 +#include <array>
 +#include <cstring>
@@ -818,7 +818,20 @@ new file mode 100644
 +        gbIsSpawn = false; gbIsHellfire = false; gbIsMultiplayer = false;
 +        ModIdentifier mod {}; mod.name = "rtt"; mod.manifest.saveExtension = "rtt";
 +        ActiveModIdentifiers = { mod };
-+        CreatePlayer(*MyPlayer, HeroClass::Sorcerer);
++        // Reproduce CreatePlayer()'s level/stat setup without CreatePlrItems(),
++        // which calls InitCursor() and needs the proprietary game MPQ that this
++        // contract test must run without.
++        *MyPlayer = Player {};
++        MyPlayer->setCharacterLevel(1);
++        MyPlayer->_pClass = HeroClass::Sorcerer;
++        const ClassAttributes &attr = MyPlayer->getClassAttributes();
++        MyPlayer->_pBaseStr = MyPlayer->_pStrength = attr.baseStr;
++        MyPlayer->_pBaseMag = MyPlayer->_pMagic = attr.baseMag;
++        MyPlayer->_pBaseDex = MyPlayer->_pDexterity = attr.baseDex;
++        MyPlayer->_pBaseVit = MyPlayer->_pVitality = attr.baseVit;
++        MyPlayer->_pHitPoints = MyPlayer->_pMaxHP = MyPlayer->_pHPBase = MyPlayer->_pMaxHPBase = MyPlayer->calculateBaseLife();
++        MyPlayer->_pMana = MyPlayer->_pMaxMana = MyPlayer->_pManaBase = MyPlayer->_pMaxManaBase = MyPlayer->calculateBaseMana();
++        EnsureRttNecromancerProgression(*MyPlayer);
 +        MyPlayer->_pBaseStr = MyPlayer->_pBaseMag = MyPlayer->_pBaseDex = 100;
 +    }
 +    void TearDown() override { ActiveModIdentifiers.clear(); }
