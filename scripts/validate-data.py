@@ -14,6 +14,10 @@ REQUIRED = {
     "spells.tsv": ["id", "display_name", "category", "class_scope", "source", "status", "notes"],
     "affixes.tsv": ["id", "display_name", "kind", "item_scope", "min_level", "source", "status", "notes"],
     "recipes.tsv": ["id", "display_name", "inputs", "output", "source", "status", "notes"],
+    "bosses.tsv": ["id", "display_name", "family", "min_level", "max_level", "source", "status", "notes"],
+    "quests.tsv": ["id", "display_name", "chapter", "trigger", "source", "status", "notes"],
+    "classes.tsv": ["id", "display_name", "archetype", "source", "status", "notes"],
+    "abyss_modifiers.tsv": ["id", "display_name", "effect", "source", "status", "notes"],
 }
 
 
