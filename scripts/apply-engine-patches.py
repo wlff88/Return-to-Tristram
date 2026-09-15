@@ -16,9 +16,9 @@ PATCH_DIR = ROOT / "Engine" / "patches"
 # whitespace differences while still requiring the actual source text to match.
 PATCH_MATCH_ARGS = ["--ignore-space-change", "--ignore-whitespace"]
 
-# Patches 0006-0008 were edited manually after generation. Their context is
-# valid, but one or more @@ hunk line counts can be stale. Keep older patches on
-# the normal git-apply path and allow recount only for this known patch tail.
+# Patches 0006-0008 were edited manually after generation. Their source context
+# is still valid, but one or more @@ hunk counts and file-boundary markers are
+# stale. Older patches stay on the normal git-apply path.
 RECOUNT_PATCHES = {
     "0006-rtt-normal-xp-multiplier.patch",
     "0007-rtt-phase4-itemization.patch",
@@ -41,6 +41,34 @@ def run_git(
     )
 
 
+def normalize_patch_boundaries(patch: pathlib.Path) -> pathlib.Path:
+    """Return a temporary patch with explicit diff boundaries for each file."""
+    lines = patch.read_text(encoding="utf-8").splitlines(keepends=True)
+    normalized: list[str] = []
+
+    for index, line in enumerate(lines):
+        if line.startswith("--- a/") and index + 1 < len(lines) and lines[index + 1].startswith("+++ b/"):
+            old_path = line[4:].strip()
+            new_path = lines[index + 1][4:].strip()
+            if not normalized or not normalized[-1].startswith("diff --git "):
+                normalized.append(f"diff --git {old_path} {new_path}\n")
+        normalized.append(line)
+
+    handle = tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        newline="\n",
+        suffix=f"-{patch.name}",
+        prefix="rtt-normalized-",
+        delete=False,
+    )
+    try:
+        handle.write("".join(normalized))
+    finally:
+        handle.close()
+    return pathlib.Path(handle.name)
+
+
 def run_apply(
     patch: pathlib.Path,
     *,
@@ -58,7 +86,14 @@ def run_apply(
     if result.returncode == 0 or patch.name not in RECOUNT_PATCHES:
         return result
 
-    return run_git(["apply", "--recount", "--verbose", *flags, str(patch)], cwd=cwd)
+    normalized_patch = normalize_patch_boundaries(patch)
+    try:
+        return run_git(
+            ["apply", "--recount", "--verbose", *flags, str(normalized_patch)],
+            cwd=cwd,
+        )
+    finally:
+        normalized_patch.unlink(missing_ok=True)
 
 
 def check_patch_series(patches: list[pathlib.Path]) -> int:
