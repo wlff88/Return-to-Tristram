@@ -1,13 +1,15 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "policy": "append-only",
   "numericSuffixWidth": 4,
   "namespaces": {
     "item": {"prefix": "RTT_ITEM", "min": 1, "max": 9999},
     "affix": {"prefix": "RTT_AFFIX", "min": 1, "max": 9999},
     "unique": {"prefix": "RTT_UNIQUE", "min": 1, "max": 9999},
+    "set": {"prefix": "RTT_SET", "min": 1, "max": 9999},
     "monster": {"prefix": "RTT_MONSTER", "min": 1, "max": 9999},
     "spell": {"prefix": "RTT_SPELL", "min": 1, "max": 9999},
+    "skill": {"prefix": "RTT_SKILL", "min": 1, "max": 9999},
     "class": {"prefix": "RTT_CLASS", "min": 1, "max": 999},
     "quest": {"prefix": "RTT_QUEST", "min": 1, "max": 9999},
     "boss": {"prefix": "RTT_BOSS", "min": 1, "max": 9999},
@@ -18,12 +20,48 @@
     {"id":"RTT_ITEM_0001","namespace":"item","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."},
     {"id":"RTT_AFFIX_0001","namespace":"affix","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."},
     {"id":"RTT_UNIQUE_0001","namespace":"unique","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."},
+    {"id":"RTT_SET_0001","namespace":"set","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 4 set-system sentinel."},
     {"id":"RTT_MONSTER_0001","namespace":"monster","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."},
     {"id":"RTT_SPELL_0001","namespace":"spell","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."},
+    {"id":"RTT_SKILL_0001","namespace":"skill","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 4 skill-system sentinel."},
     {"id":"RTT_CLASS_0001","namespace":"class","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."},
     {"id":"RTT_QUEST_0001","namespace":"quest","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."},
     {"id":"RTT_BOSS_0001","namespace":"boss","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."},
     {"id":"RTT_RECIPE_0001","namespace":"recipe","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."},
-    {"id":"RTT_ABYSSMOD_0001","namespace":"abyss_modifier","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."}
+    {"id":"RTT_ABYSSMOD_0001","namespace":"abyss_modifier","symbol":"FRAMEWORK_SENTINEL","status":"reserved","introduced":"0.1.0-dev","notes":"Reserved Phase 2 registry sentinel; not emitted as gameplay content."},
+
+    {"id":"RTT_ITEM_0002","namespace":"item","symbol":"BONE_WAND_ARCHETYPE","status":"development","introduced":"0.1.0-dev","notes":"Necromancer staff archetype; initial engine fallback is Short Staff."},
+    {"id":"RTT_ITEM_0003","namespace":"item","symbol":"OSSUARY_BLADE_ARCHETYPE","status":"development","introduced":"0.1.0-dev","notes":"Fast one-handed blade archetype for hybrid caster/melee builds."},
+    {"id":"RTT_ITEM_0004","namespace":"item","symbol":"GRAVEWARD_SHIELD_ARCHETYPE","status":"development","introduced":"0.1.0-dev","notes":"Defensive shield archetype."},
+    {"id":"RTT_ITEM_0005","namespace":"item","symbol":"BONEWEAVE_ROBE_ARCHETYPE","status":"development","introduced":"0.1.0-dev","notes":"Light-armor caster archetype."},
+
+    {"id":"RTT_AFFIX_0002","namespace":"affix","symbol":"GRAVEBOUND_T1","status":"development","introduced":"0.1.0-dev","notes":"Compact affix code 1."},
+    {"id":"RTT_AFFIX_0003","namespace":"affix","symbol":"GRAVEBOUND_T2","status":"development","introduced":"0.1.0-dev","notes":"Compact affix code 2."},
+    {"id":"RTT_AFFIX_0004","namespace":"affix","symbol":"GRAVEBOUND_T3","status":"development","introduced":"0.1.0-dev","notes":"Compact affix code 3."},
+    {"id":"RTT_AFFIX_0005","namespace":"affix","symbol":"STALWART_T1","status":"development","introduced":"0.1.0-dev","notes":"Compact affix code 4."},
+    {"id":"RTT_AFFIX_0006","namespace":"affix","symbol":"STALWART_T2","status":"development","introduced":"0.1.0-dev","notes":"Compact affix code 5."},
+    {"id":"RTT_AFFIX_0007","namespace":"affix","symbol":"STALWART_T3","status":"development","introduced":"0.1.0-dev","notes":"Compact affix code 6."},
+    {"id":"RTT_AFFIX_0008","namespace":"affix","symbol":"OF_EMBERS_T1","status":"development","introduced":"0.1.0-dev","notes":"Compact affix code 7."},
+    {"id":"RTT_AFFIX_0009","namespace":"affix","symbol":"OF_EMBERS_T2","status":"development","introduced":"0.1.0-dev","notes":"Compact affix code 8."},
+    {"id":"RTT_AFFIX_0010","namespace":"affix","symbol":"OF_EMBERS_T3","status":"development","introduced":"0.1.0-dev","notes":"Compact affix code 9."},
+    {"id":"RTT_AFFIX_0011","namespace":"affix","symbol":"OF_STORMS_T1","status":"development","introduced":"0.1.0-dev","notes":"Compact affix code 10."},
+    {"id":"RTT_AFFIX_0012","namespace":"affix","symbol":"OF_STORMS_T2","status":"development","introduced":"0.1.0-dev","notes":"Compact affix code 11."},
+    {"id":"RTT_AFFIX_0013","namespace":"affix","symbol":"OF_STORMS_T3","status":"development","introduced":"0.1.0-dev","notes":"Compact affix code 12."},
+
+    {"id":"RTT_UNIQUE_0002","namespace":"unique","symbol":"ASHEN_COVENANT","status":"development","introduced":"0.1.0-dev","notes":"Prototype Bone Wand unique."},
+    {"id":"RTT_UNIQUE_0003","namespace":"unique","symbol":"BONEWARD","status":"development","introduced":"0.1.0-dev","notes":"Prototype Graveward Shield unique."},
+    {"id":"RTT_UNIQUE_0004","namespace":"unique","symbol":"GRAVEWHISPER","status":"development","introduced":"0.1.0-dev","notes":"Prototype Boneweave Robe unique."},
+    {"id":"RTT_SET_0002","namespace":"set","symbol":"OSSUARY_REGALIA","status":"development","introduced":"0.1.0-dev","notes":"First RTT set-framework prototype."},
+
+    {"id":"RTT_SKILL_0002","namespace":"skill","symbol":"BONE_SPIKE","status":"development","introduced":"0.1.0-dev","notes":"Necromancer active damage skill."},
+    {"id":"RTT_SKILL_0003","namespace":"skill","symbol":"BONE_ARMOR","status":"development","introduced":"0.1.0-dev","notes":"Necromancer active defensive skill."},
+    {"id":"RTT_SKILL_0004","namespace":"skill","symbol":"GRAVE_PACT","status":"development","introduced":"0.1.0-dev","notes":"Necromancer active resource/damage skill."},
+    {"id":"RTT_SKILL_0005","namespace":"skill","symbol":"SOUL_SIPHON","status":"development","introduced":"0.1.0-dev","notes":"Necromancer passive notable."},
+    {"id":"RTT_SKILL_0006","namespace":"skill","symbol":"OSSUARY_MASTERY","status":"development","introduced":"0.1.0-dev","notes":"Necromancer mastery node."},
+    {"id":"RTT_CLASS_0002","namespace":"class","symbol":"NECROMANCER","status":"development","introduced":"0.1.0-dev","notes":"First RTT logical class vertical slice; initially reuses Sorcerer-compatible presentation assets."},
+
+    {"id":"RTT_RECIPE_0002","namespace":"recipe","symbol":"REFORGE_RARE","status":"development","introduced":"0.1.0-dev","notes":"Reroll all non-locked affix slots on an RTT rare."},
+    {"id":"RTT_RECIPE_0003","namespace":"recipe","symbol":"RAISE_AFFIX_TIER","status":"development","introduced":"0.1.0-dev","notes":"Upgrade one eligible affix by one tier."},
+    {"id":"RTT_RECIPE_0004","namespace":"recipe","symbol":"REROLL_AFFIX_SLOT","status":"development","introduced":"0.1.0-dev","notes":"Reroll one selected affix slot while retaining other slots."}
   ]
 }
