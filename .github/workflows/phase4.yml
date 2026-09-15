@@ -1,0 +1,39 @@
+name: Phase 4 Linux engine contracts
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: phase4-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake g++-14 libgtest-dev libgmock-dev libbenchmark-dev libsdl2-dev libsodium-dev libpng-dev libbz2-dev
+      - name: Patch engine
+        run: python3 scripts/apply-engine-patches.py
+      - name: Build engine contracts
+        env:
+          CC: gcc-14
+          CXX: g++-14
+        run: |
+          cmake -S Engine/devilutionx -B build/phase4 -G Ninja -DBUILD_TESTING=ON -DDEVILUTIONX_SYSTEM_BENCHMARK=OFF
+          cmake --build build/phase4 --target rtt_phase4_test -j 2
+      - name: Run engine contracts
+        working-directory: build/phase4
+        run: ./rtt_phase4_test --gtest_output=xml:phase4-results.xml
+      - name: Validate completion evidence
+        run: python3 scripts/validate-phase4-complete.py --results build/phase4/phase4-results.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase4-linux-evidence
+          path: build/phase4/phase4-results.xml

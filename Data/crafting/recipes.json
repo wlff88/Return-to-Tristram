@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "currencyModel": "inventory-gold",
+  "entries": [
+    {
+      "stableId": "RTT_RECIPE_0002",
+      "symbol": "REFORGE_RARE",
+      "name": "Reforge Rare",
+      "target": "rtt-rare-equipment",
+      "operation": "reroll-all-affixes",
+      "preserve": [
+        "baseItem",
+        "itemLevel",
+        "rarity",
+        "seed",
+        "durability",
+        "charges"
+      ],
+      "requiresEngineMutation": true,
+      "cost": {
+        "gold": 100
+      },
+      "selectedSlotRange": [
+        0,
+        3
+      ]
+    },
+    {
+      "stableId": "RTT_RECIPE_0003",
+      "symbol": "RAISE_AFFIX_TIER",
+      "name": "Raise Affix Tier",
+      "target": "rtt-rare-equipment",
+      "operation": "upgrade-one-affix-tier",
+      "constraints": [
+        "selected-affix-has-next-tier",
+        "next-tier-min-level-satisfied"
+      ],
+      "requiresEngineMutation": true,
+      "cost": {
+        "gold": 150
+      },
+      "preserve": [
+        "baseItem",
+        "itemLevel",
+        "rarity",
+        "seed",
+        "durability",
+        "charges"
+      ],
+      "selectedSlotRange": [
+        0,
+        3
+      ]
+    },
+    {
+      "stableId": "RTT_RECIPE_0004",
+      "symbol": "REROLL_AFFIX_SLOT",
+      "name": "Reroll Affix Slot",
+      "target": "rtt-rare-equipment",
+      "operation": "reroll-one-affix-slot",
+      "preserve": [
+        "baseItem",
+        "itemLevel",
+        "rarity",
+        "seed",
+        "durability",
+        "charges",
+        "all-other-affix-slots"
+      ],
+      "requiresEngineMutation": true,
+      "cost": {
+        "gold": 50
+      },
+      "selectedSlotRange": [
+        0,
+        3
+      ]
+    }
+  ]
+}

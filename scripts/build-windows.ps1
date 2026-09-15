@@ -25,7 +25,14 @@ $ConfigureArgs = @(
     '-S', $SourceDir,
     '-B', $BuildDir,
     '-A', 'x64',
-    '-DBUILD_TESTING=OFF'
+    '-DBUILD_TESTING=ON',
+    # DevilutionX's own CMakeLists.txt force-disables BUILD_TESTING for a
+    # non-Debug MSVC configuration when LTO is on (workaround for a MSVC+CMake
+    # LTO bug, https://github.com/diasurgical/devilutionX/issues/3778). That
+    # silently drops every test target, including rtt_phase4_test, so the
+    # contract gate never builds. Disable LTO for this baseline/test build so
+    # BUILD_TESTING actually takes effect.
+    '-DDISABLE_LTO=ON'
 )
 
 if ($VcpkgRoot) {
@@ -54,7 +61,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "CMake configure failed with exit code $LASTEXITCODE"
 }
 
-cmake --build $BuildDir --config $Configuration --target devilutionx --parallel
+cmake --build $BuildDir --config $Configuration --target devilutionx rtt_phase4_test --parallel
 if ($LASTEXITCODE -ne 0) {
     throw "DevilutionX build failed with exit code $LASTEXITCODE"
 }

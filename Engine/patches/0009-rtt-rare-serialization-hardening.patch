@@ -1,0 +1,228 @@
+diff --git a/Source/items.cpp b/Source/items.cpp
+--- a/Source/items.cpp
++++ b/Source/items.cpp
+@@ -270,7 +270,48 @@
+-int RttRoll(const Item &item, uint8_t code, int minimum, int maximum)
++int RttRoll(const Item &item, uint8_t code, size_t slot, int minimum, int maximum)
+ {
+ 	const uint32_t span = static_cast<uint32_t>(maximum - minimum + 1);
+-	return minimum + static_cast<int>(RttMix(item._iSeed ^ (static_cast<uint32_t>(code) * 0x9E3779B9U)) % span);
++	const uint32_t rollKey = item._iSeed
++	    + static_cast<uint32_t>(code) * 0x9E3779B9U
++	    + static_cast<uint32_t>(slot + 1) * 0x85EBCA6BU;
++	return minimum + static_cast<int>(RttMix(rollKey) % span);
++}
++
++bool IsRttPrefixCode(uint8_t code)
++{
++	return code >= 1 && code <= 6;
++}
++
++bool IsRttSuffixCode(uint8_t code)
++{
++	return code >= 7 && code <= 12;
++}
++
++int RttAffixMinItemLevel(uint8_t code)
++{
++	if (code < 1 || code > 12)
++		return CF_LEVEL + 1;
++	const uint8_t tier = static_cast<uint8_t>((code - 1) % 3);
++	return tier == 0 ? 1 : tier == 1 ? 10 : 20;
++}
++
++bool IsRttAffixCompatible(const Item &item, uint8_t code, size_t slot, int itemLevel)
++{
++	if (code == 0)
++		return true;
++	if (slot >= RttAffixMasks.size())
++		return false;
++
++	const bool prefixSlot = slot < 2;
++	if (prefixSlot ? !IsRttPrefixCode(code) : !IsRttSuffixCode(code))
++		return false;
++	if (itemLevel < RttAffixMinItemLevel(code))
++		return false;
++
++	if (code <= 3)
++		return item.isWeapon();
++	if (code <= 6)
++		return item.isArmor() || item.isShield() || item.isHelm();
++	return code <= 12 && item.isEquipment();
+ }
+ 
+ uint8_t RttTierCode(int level, uint8_t tier1Code)
+@@ -313,22 +354,30 @@
+ std::array<uint8_t, 4> BuildRttRareCodes(const Item &item, int level, uint32_t salt)
+ {
+ 	std::array<uint8_t, 4> codes {};
+-	const uint32_t selector = RttMix(item._iSeed ^ salt ^ 0x52545434U);
++	const uint32_t selector = RttMix(item._iSeed + salt + 0x52545434U);
+ 
++	// Slots 0-1 are permanently prefix slots; slots 2-3 are suffix slots.
++	// The current compact catalog has one compatible prefix family per broad
++	// equipment class, so slot 1 intentionally stays empty until another
++	// compatible prefix family is allocated.
+ 	if (item.isWeapon())
+ 		codes[0] = RttTierCode(level, 1);
+ 	else if (item.isArmor() || item.isShield() || item.isHelm())
+ 		codes[0] = RttTierCode(level, 4);
+ 
+ 	const uint8_t fire = RttTierCode(level, 7);
+ 	const uint8_t lightning = RttTierCode(level, 10);
+ 	if ((selector & 1U) == 0) {
+-		codes[1] = fire;
++		codes[2] = fire;
++		codes[3] = lightning;
++	} else {
+ 		codes[2] = lightning;
+-	} else {
+-		codes[1] = lightning;
+-		codes[2] = fire;
++		codes[3] = fire;
+ 	}
+ 
++	for (size_t slot = 0; slot < codes.size(); ++slot) {
++		if (!IsRttAffixCompatible(item, codes[slot], slot, level))
++			codes[slot] = 0;
++	}
+ 	return codes;
+ }
+@@ -337,30 +386,34 @@
+-void ApplyRttAffix(Item &item, uint8_t code)
++void ApplyRttAffix(Item &item, uint8_t code, size_t slot)
+ {
++	const int itemLevel = item._iCreateInfo & CF_LEVEL;
++	if (!IsRttAffixCompatible(item, code, slot, itemLevel))
++		return;
++
+ 	if (code >= 1 && code <= 3) {
+ 		static constexpr std::array<int, 3> Min { 8, 13, 21 };
+ 		static constexpr std::array<int, 3> Max { 12, 20, 30 };
+ 		const size_t tier = code - 1;
+-		item._iPLDam += RttRoll(item, code, Min[tier], Max[tier]);
++		item._iPLDam += RttRoll(item, code, slot, Min[tier], Max[tier]);
+ 		return;
+ 	}
+ 	if (code >= 4 && code <= 6) {
+ 		static constexpr std::array<int, 3> Min { 8, 13, 21 };
+ 		static constexpr std::array<int, 3> Max { 12, 20, 30 };
+ 		const size_t tier = code - 4;
+-		item._iPLAC += RttRoll(item, code, Min[tier], Max[tier]);
++		item._iPLAC += RttRoll(item, code, slot, Min[tier], Max[tier]);
+ 		return;
+ 	}
+ 	if (code >= 7 && code <= 9) {
+ 		static constexpr std::array<int, 3> Min { 6, 11, 19 };
+ 		static constexpr std::array<int, 3> Max { 10, 18, 28 };
+ 		const size_t tier = code - 7;
+-		item._iPLFR += RttRoll(item, code, Min[tier], Max[tier]);
++		item._iPLFR += RttRoll(item, code, slot, Min[tier], Max[tier]);
+ 		return;
+ 	}
+ 	if (code >= 10 && code <= 12) {
+ 		static constexpr std::array<int, 3> Min { 6, 11, 19 };
+ 		static constexpr std::array<int, 3> Max { 10, 18, 28 };
+ 		const size_t tier = code - 10;
+-		item._iPLLR += RttRoll(item, code, Min[tier], Max[tier]);
++		item._iPLLR += RttRoll(item, code, slot, Min[tier], Max[tier]);
+ 	}
+ }
+@@ -369,7 +422,10 @@
+ std::string RttRareName(const Item &item)
+ {
+ 	static constexpr std::array<std::string_view, 8> First { "Grave", "Bone", "Ash", "Dread", "Marrow", "Crypt", "Soul", "Night" };
+ 	static constexpr std::array<std::string_view, 8> Second { "Bite", "Ward", "Oath", "Song", "Brand", "Veil", "Grasp", "Spite" };
+-	const uint32_t mixed = RttMix(item._iSeed ^ item.dwBuff);
++	const uint32_t mixed = RttMix(
++	    item._iSeed
++	    + static_cast<uint32_t>(item.IDidx) * 0x9E3779B9U
++	    + 0x52415245U);
+ 	return StrCat(First[mixed % First.size()], " ", Second[(mixed >> 8) % Second.size()]);
+ }
+@@ -377,9 +433,9 @@
+ void ApplyRttItemMetadata(Item &item)
+ {
+ 	if (!HasRttItemMetadata(item))
+ 		return;
+ 
+ 	for (size_t slot = 0; slot < RttAffixMasks.size(); ++slot)
+-		ApplyRttAffix(item, GetRttAffixCode(item, slot));
++		ApplyRttAffix(item, GetRttAffixCode(item, slot), slot);
+ 
+ 	const RttItemRarity rarity = GetRttItemRarity(item);
+@@ -410,22 +466,22 @@
+-void MaybeGenerateRttItemMetadata(Item &item, int level, bool pregen)
++void MaybeGenerateRttItemMetadata(Item &item, int level)
+ {
+-	if (!IsRttRuntime() || pregen || !item.isEquipment() || item._iMagical == ITEM_QUALITY_UNIQUE || HasRttItemMetadata(item))
++	if (!IsRttRuntime() || !item.isEquipment() || item._iMagical == ITEM_QUALITY_UNIQUE || HasRttItemMetadata(item))
+ 		return;
+ 
+ 	const uint32_t rarityRoll = RttMix(item._iSeed ^ 0xA17E4D31U) % 100;
+ 	if (rarityRoll < 2 && level >= 12) {
+ 		if (item._itype == ItemType::Staff) {
+-			SetRttMetadata(item, RttItemRarity::Unique, { 2, 8, 0, 0 });
++			SetRttMetadata(item, RttItemRarity::Unique, { 2, 0, 8, 0 });
+ 		} else if (item.isShield() && level >= 15) {
+-			SetRttMetadata(item, RttItemRarity::Unique, { 5, 11, 0, 0 });
++			SetRttMetadata(item, RttItemRarity::Unique, { 5, 0, 11, 0 });
+ 		} else if (item._itype == ItemType::LightArmor && level >= 18) {
+-			SetRttMetadata(item, RttItemRarity::Unique, { 5, 9, 0, 0 });
++			SetRttMetadata(item, RttItemRarity::Unique, { 5, 0, 9, 0 });
+ 		}
+ 	}
+ 	if (!HasRttItemMetadata(item) && rarityRoll >= 2 && rarityRoll < 6 && level >= 10 && (item.isShield() || item._itype == ItemType::LightArmor))
+-		SetRttMetadata(item, RttItemRarity::Set, { RttTierCode(level, 4), RttTierCode(level, 7), RttTierCode(level, 10), 0 });
++		SetRttMetadata(item, RttItemRarity::Set, { RttTierCode(level, 4), 0, RttTierCode(level, 7), RttTierCode(level, 10) });
+ 	if (!HasRttItemMetadata(item) && rarityRoll >= 6 && rarityRoll < 21)
+ 		SetRttMetadata(item, RttItemRarity::Rare, BuildRttRareCodes(item, level, 0));
+ 
+ 	ApplyRttItemMetadata(item);
+ }
+@@ -434,12 +490,16 @@
+-std::string RttAffixLine(const Item &item, uint8_t code)
++std::string RttAffixLine(const Item &item, size_t slot, uint8_t code)
+ {
++	const int itemLevel = item._iCreateInfo & CF_LEVEL;
++	if (!IsRttAffixCompatible(item, code, slot, itemLevel))
++		return {};
++
+ 	if (code >= 1 && code <= 3)
+-		return FormatRuntime(_("Damage +{:d}%"), RttRoll(item, code, code == 1 ? 8 : code == 2 ? 13 : 21, code == 1 ? 12 : code == 2 ? 20 : 30));
++		return FormatRuntime(_("Damage +{:d}%"), RttRoll(item, code, slot, code == 1 ? 8 : code == 2 ? 13 : 21, code == 1 ? 12 : code == 2 ? 20 : 30));
+ 	if (code >= 4 && code <= 6)
+-		return FormatRuntime(_("Armor +{:d}%"), RttRoll(item, code, code == 4 ? 8 : code == 5 ? 13 : 21, code == 4 ? 12 : code == 5 ? 20 : 30));
++		return FormatRuntime(_("Armor +{:d}%"), RttRoll(item, code, slot, code == 4 ? 8 : code == 5 ? 13 : 21, code == 4 ? 12 : code == 5 ? 20 : 30));
+ 	if (code >= 7 && code <= 9)
+-		return FormatRuntime(_("Fire Resist +{:d}%"), RttRoll(item, code, code == 7 ? 6 : code == 8 ? 11 : 19, code == 7 ? 10 : code == 8 ? 18 : 28));
++		return FormatRuntime(_("Fire Resist +{:d}%"), RttRoll(item, code, slot, code == 7 ? 6 : code == 8 ? 11 : 19, code == 7 ? 10 : code == 8 ? 18 : 28));
+ 	if (code >= 10 && code <= 12)
+-		return FormatRuntime(_("Lightning Resist +{:d}%"), RttRoll(item, code, code == 10 ? 6 : code == 11 ? 11 : 19, code == 10 ? 10 : code == 11 ? 18 : 28));
++		return FormatRuntime(_("Lightning Resist +{:d}%"), RttRoll(item, code, slot, code == 10 ? 6 : code == 11 ? 11 : 19, code == 10 ? 10 : code == 11 ? 18 : 28));
+ 	return {};
+ }
+@@ -2000,5 +2060,5 @@
+ 		for (size_t slot = 0; slot < RttAffixMasks.size(); ++slot) {
+-			const std::string line = RttAffixLine(item, GetRttAffixCode(item, slot));
++			const std::string line = RttAffixLine(item, slot, GetRttAffixCode(item, slot));
+ 			if (!line.empty())
+ 				AddItemInfoBoxString(line);
+ 		}
+@@ -3525,3 +3585,3 @@
+ 	if (generateRttMetadata)
+-		MaybeGenerateRttItemMetadata(item, lvl, pregen);
++		MaybeGenerateRttItemMetadata(item, lvl);
+ }
+@@ -3773,8 +3833,10 @@
+ 	const bool pregen = (icreateinfo & CF_PREGEN) != 0;
+ 	auto uidOffset = static_cast<int>((item.dwBuff & CF_UIDOFFSET) >> 1);
++	const bool hasRttMetadata = HasRttItemMetadata(item);
+ 
+ 	SetupAllItems(player, item, idx, iseed, level, uper, onlygood, pregen, uidOffset, forceNotUnique, false);
+-	ApplyRttItemMetadata(item);
++	if (hasRttMetadata)
++		ApplyRttItemMetadata(item);
+ 	SetupItem(item);
+ 	gbIsHellfire = tmpIsHellfire;
+ }

@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 2,
+  "progressionModel": {
+    "activeSkillUpgradeChoices": 3,
+    "specializationChoice": 1,
+    "passiveKinds": [
+      "minor",
+      "notable",
+      "mastery"
+    ],
+    "verticalSlicePolicy": "persisted-award-ledger-and-explicit-choices",
+    "skillPointLevels": [
+      2,
+      4,
+      6,
+      8,
+      10,
+      12,
+      15
+    ],
+    "implementedSpecialization": {
+      "choice": "ossuary-lance",
+      "code": 1,
+      "requiredLevel": 15,
+      "cost": 1,
+      "effect": {
+        "boneSpikeRank": 1
+      }
+    }
+  },
+  "entries": [
+    {
+      "stableId": "RTT_SKILL_0002",
+      "symbol": "BONE_SPIKE",
+      "name": "Bone Spike",
+      "classId": "RTT_CLASS_0002",
+      "kind": "active",
+      "requiredLevel": 1,
+      "resource": "mana",
+      "baseCost": 5,
+      "engineSpell": "HolyBolt",
+      "tags": [
+        "bone",
+        "projectile",
+        "magic"
+      ],
+      "upgrades": [
+        "splinter",
+        "pierce",
+        "execution"
+      ],
+      "specializations": [
+        "ossuary-lance",
+        "marrow-burst"
+      ],
+      "implementedUpgrade": {
+        "choice": "splinter",
+        "code": 1,
+        "cost": 1,
+        "effect": {
+          "skillRank": 1
+        }
+      }
+    },
+    {
+      "stableId": "RTT_SKILL_0003",
+      "symbol": "BONE_ARMOR",
+      "name": "Bone Armor",
+      "classId": "RTT_CLASS_0002",
+      "kind": "active",
+      "requiredLevel": 4,
+      "resource": "mana",
+      "baseCost": 8,
+      "engineSpell": "ManaShield",
+      "tags": [
+        "bone",
+        "defense",
+        "barrier"
+      ],
+      "upgrades": [
+        "hardened",
+        "retaliation",
+        "renewal"
+      ],
+      "specializations": [
+        "bone-prison",
+        "ossuary-shell"
+      ],
+      "implementedUpgrade": {
+        "choice": "hardened",
+        "code": 1,
+        "cost": 1,
+        "effect": {
+          "barrierDamageReductionPercent": 10
+        }
+      }
+    },
+    {
+      "stableId": "RTT_SKILL_0004",
+      "symbol": "GRAVE_PACT",
+      "name": "Grave Pact",
+      "classId": "RTT_CLASS_0002",
+      "kind": "active",
+      "requiredLevel": 8,
+      "resource": "mana",
+      "baseCost": 12,
+      "engineSpell": "BloodStar",
+      "tags": [
+        "shadow",
+        "resource",
+        "risk-reward"
+      ],
+      "upgrades": [
+        "blood-price",
+        "soul-return",
+        "dark-bargain"
+      ],
+      "specializations": [
+        "death-debt",
+        "black-covenant"
+      ],
+      "implementedUpgrade": {
+        "choice": "soul-return",
+        "code": 1,
+        "cost": 1,
+        "effect": {
+          "skillRank": 1
+        }
+      }
+    },
+    {
+      "stableId": "RTT_SKILL_0005",
+      "symbol": "SOUL_SIPHON",
+      "name": "Soul Siphon",
+      "classId": "RTT_CLASS_0002",
+      "kind": "notable",
+      "requiredLevel": 6,
+      "tags": [
+        "resource",
+        "sustain"
+      ],
+      "effect": {
+        "onKillManaPercent": 2
+      }
+    },
+    {
+      "stableId": "RTT_SKILL_0006",
+      "symbol": "OSSUARY_MASTERY",
+      "name": "Ossuary Mastery",
+      "classId": "RTT_CLASS_0002",
+      "kind": "mastery",
+      "requiredLevel": 15,
+      "tags": [
+        "bone",
+        "mastery"
+      ],
+      "effect": {
+        "minimumBoneSpikeRank": 2,
+        "minimumBoneArmorRank": 2
+      }
+    }
+  ]
+}

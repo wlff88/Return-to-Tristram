@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "stableId": "RTT_SET_0002",
+      "symbol": "OSSUARY_REGALIA",
+      "name": "Ossuary Regalia",
+      "prototypePieces": [
+        "RTT_ITEM_0004",
+        "RTT_ITEM_0005"
+      ],
+      "bonuses": [
+        {
+          "pieces": 2,
+          "effects": [
+            {
+              "stat": "fireResist",
+              "value": 10
+            },
+            {
+              "stat": "lightningResist",
+              "value": 10
+            },
+            {
+              "stat": "skillRank",
+              "skillId": "RTT_SKILL_0003",
+              "value": 1
+            }
+          ]
+        }
+      ],
+      "notes": "Count distinct equipped, identified and usable piece identities. Two identical pieces do not activate the bonus.",
+      "pieces": [
+        {
+          "stableId": "RTT_ITEM_0006",
+          "baseItemId": "RTT_ITEM_0004",
+          "identityCode": 61,
+          "name": "Ossuary Guard"
+        },
+        {
+          "stableId": "RTT_ITEM_0007",
+          "baseItemId": "RTT_ITEM_0005",
+          "identityCode": 62,
+          "name": "Ossuary Vestment"
+        }
+      ]
+    }
+  ]
+}

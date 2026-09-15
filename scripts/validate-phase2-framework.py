@@ -41,11 +41,15 @@ def validate_features() -> None:
     config.optionxform = str
     config.read(ROOT / "config/features.ini", encoding="utf-8")
     if int(config["rtt"].get("frameworkVersion", "0")) != 1:
-        fail("frameworkVersion must be 1")
-    if int(config["rtt"].get("saveSchemaVersion", "0")) != 1:
-        fail("saveSchemaVersion must be 1")
-    if int(config["rtt"].get("networkProtocolVersion", "0")) != 1:
-        fail("networkProtocolVersion must be 1")
+        fail("frameworkVersion must remain 1")
+    configured_save_version = int(config["rtt"].get("saveSchemaVersion", "0"))
+    if configured_save_version < 1:
+        fail("saveSchemaVersion must be at least 1")
+    save_schema = read_json("config/save-schema.json")
+    if configured_save_version != int(save_schema.get("currentVersion", 0)):
+        fail("features.ini saveSchemaVersion must match config/save-schema.json currentVersion")
+    if int(config["rtt"].get("networkProtocolVersion", "0")) != 2:
+        fail("networkProtocolVersion must be 2 for Phase 4 progression packets")
     for module in EXPECTED_MODULES:
         if config["modules"].get(module, "").lower() != "true":
             fail(f"Phase 2 module must be framework-enabled: {module}")
@@ -78,8 +82,8 @@ def validate_table_map() -> None:
 
 def validate_registry() -> None:
     registry = read_json("config/content-ids.json")
-    if registry.get("schemaVersion") != 1 or registry.get("policy") != "append-only":
-        fail("content registry must be schema v1 and append-only")
+    if int(registry.get("schemaVersion", 0)) < 1 or registry.get("policy") != "append-only":
+        fail("content registry must remain append-only and use schemaVersion >= 1")
     width = int(registry["numericSuffixWidth"])
     seen_ids: set[str] = set()
     seen_symbols: set[tuple[str, str]] = set()
@@ -117,13 +121,13 @@ def validate_save_and_network() -> None:
     manifest = configparser.ConfigParser()
     manifest.optionxform = str
     manifest.read(ROOT / "packaging/mod/manifest.ini", encoding="utf-8")
-    if save.get("currentVersion") != 1 or save.get("minimumSupportedVersion") != 1:
-        fail("RTT save schema must start at v1")
+    if int(save.get("currentVersion", 0)) < 1 or save.get("minimumSupportedVersion") != 1:
+        fail("RTT save schema must preserve v1 as the minimum supported version")
     if save.get("saveExtension") != manifest["mod"].get("saveExtension"):
         fail("save schema extension does not match manifest")
     if save.get("namespace") != manifest["mod"].get("programId"):
         fail("save schema namespace does not match manifest programId")
-    if network.get("protocolVersion") != 1 or network.get("baseline") != BASELINE:
+    if network.get("protocolVersion") != 2 or network.get("baseline") != BASELINE:
         fail("network policy protocol/baseline mismatch")
     for key in ("sameRttVersion", "sameEngineBaseline", "sameContentRegistry", "sameSaveSchema"):
         if network["requirements"].get(key) is not True:
@@ -158,7 +162,7 @@ def main() -> int:
     for relative in ("docs/PHASE2_MOD_FRAMEWORK.md", "docs/MULTIPLAYER_COMPATIBILITY.md", "scripts/generate-framework-data.py"):
         if not (ROOT / relative).is_file():
             fail(f"missing Phase 2 artifact: {relative}")
-    print("OK: Phase 2 RTT Mod Framework contract is complete and internally consistent")
+    print("OK: Phase 2 RTT Mod Framework contract remains complete under the current forward-compatible schemas")
     return 0
 
 

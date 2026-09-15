@@ -50,7 +50,7 @@ for token in required_roadmap:
 
 required_status = [
     'Phase 3 — Classic+:** ENGINEERING COMPLETE / MANUAL RUNTIME ACCEPTANCE PENDING',
-    'Phase 4 — Itemisation, skills and classes:** next engineering phase',
+    'Phase 4 — Itemisation, skills and classes:**',
     'The development version therefore remains `0.1.0-dev`',
 ]
 for token in required_status:

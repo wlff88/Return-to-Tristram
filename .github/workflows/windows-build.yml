@@ -169,8 +169,17 @@ jobs:
         shell: pwsh
         run: |
           $lastCode = 1
+          $engine = 'Engine/devilutionx'
           for ($attempt = 1; $attempt -le 3; $attempt++) {
             try {
+              # build-windows.ps1 applies the RTT patch stack in-place. Always
+              # restore the pinned submodule before a retry so a failed compile
+              # cannot poison the next attempt with an already-patched tree.
+              git -C $engine reset --hard HEAD
+              if ($LASTEXITCODE -ne 0) { throw "Engine reset failed with exit code $LASTEXITCODE" }
+              git -C $engine clean -fd
+              if ($LASTEXITCODE -ne 0) { throw "Engine clean failed with exit code $LASTEXITCODE" }
+
               & ./scripts/build-windows.ps1 -Configuration Release -VcpkgRoot $env:VCPKG_ROOT -Sol2Source $env:RTT_SOL2_SOURCE
               $lastCode = $LASTEXITCODE
             }
@@ -201,6 +210,22 @@ jobs:
           $exe = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $exe) { throw "Missing devilutionx.exe in expected build output." }
           Get-Item $exe | Select-Object FullName, Length
+
+      - name: Phase 4 engine contracts
+        shell: pwsh
+        run: |
+          $test = Resolve-Path 'build/devilutionx-windows-x64/Release/rtt_phase4_test.exe'
+          # DevilutionX resolves unpacked assets relative to the executable's own
+          # directory (SDL_GetBasePath() + "assets/"), but CMake's copy_files()
+          # always stages them at the base build dir, not inside the per-config
+          # Release/Debug subdirectory MSVC uses. Mirror them alongside the test
+          # binary so it can find txtdata/items/itemdat.tsv etc.
+          Copy-Item -Recurse -Force 'build/devilutionx-windows-x64/assets' 'build/devilutionx-windows-x64/Release/assets'
+          Push-Location build/devilutionx-windows-x64
+          & $test --gtest_output=xml:phase4-results.xml
+          if ($LASTEXITCODE -ne 0) { throw 'Phase 4 engine contracts failed' }
+          Pop-Location
+          python scripts/validate-phase4-complete.py --results build/devilutionx-windows-x64/phase4-results.xml
 
       - name: Package RTT Windows x64 test build
         shell: pwsh

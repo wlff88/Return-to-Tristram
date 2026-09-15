@@ -44,8 +44,17 @@ jobs:
       - name: Validate weapon swap
         run: python scripts/validate-weapon-swap.py
 
+      - name: Validate Normal XP multiplier
+        run: python scripts/validate-normal-xp.py
+
       - name: Validate Phase 3 engineering completion
         run: python scripts/validate-phase3-complete.py
+
+      - name: Validate Phase 4 itemization/progression foundation
+        run: python scripts/validate-phase4-foundation.py
+
+      - name: Validate RTT Rare serialization round-trip
+        run: python scripts/validate-rtt-rare-roundtrip.py
 
       - name: Generate runtime tables
         run: python scripts/export-mod-data.py --output out/ci-mod
@@ -65,13 +74,13 @@ jobs:
           grep -q $'^gold\t200$' out/ci-mod/txtdata/classes/rogue/starting_loadout.tsv
           grep -q $'^gold\t200$' out/ci-mod/txtdata/classes/sorcerer/starting_loadout.tsv
 
-      - name: Validate generated Phase 2 runtime contract
+      - name: Validate generated framework contract
         run: |
           test -f out/ci-mod/lua/mods/rtt/generated/content_ids.lua
           test -f out/ci-mod/lua/mods/rtt/generated/contract.lua
           grep -q 'frameworkVersion = 1' out/ci-mod/lua/mods/rtt/generated/contract.lua
-          grep -q 'saveSchemaVersion = 1' out/ci-mod/lua/mods/rtt/generated/contract.lua
-          grep -q 'networkProtocolVersion = 1' out/ci-mod/lua/mods/rtt/generated/contract.lua
+          grep -q 'saveSchemaVersion = 2' out/ci-mod/lua/mods/rtt/generated/contract.lua
+          grep -q 'networkProtocolVersion = 2' out/ci-mod/lua/mods/rtt/generated/contract.lua
 
       - name: Validate RTT loot filter runtime files
         run: |

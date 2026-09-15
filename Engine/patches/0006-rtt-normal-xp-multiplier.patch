@@ -1,0 +1,22 @@
+--- a/Source/player.cpp
++++ b/Source/player.cpp
+@@ -42,5 +42,6 @@
+ #include "missiles.h"
+ #include "monster.h"
++#include "mods/mod_identity.h"
+ #include "nthread.h"
+ #include "objects.h"
+ #include "options.h"
+@@ -2428,5 +2429,11 @@ void Player::_addExperience(uint32_t experience, int levelDelta)
+ 	// Adjust xp based on difference between the players current level and the target level (usually a monster level)
+ 	uint32_t clampedExp = static_cast<uint32_t>(std::clamp<int64_t>(static_cast<int64_t>(experience * (1 + levelDelta / 10.0)), 0, std::numeric_limits<uint32_t>::max()));
+ 
++	// RTT Classic+/Normal pacing: increase earned XP by 50% without changing
++	// Nightmare/Hell or bypassing the existing multiplayer anti-power-level cap.
++	if (GetActiveModSaveExtension() == "rtt" && sgGameInitInfo.nDifficulty == DIFF_NORMAL) {
++		clampedExp = static_cast<uint32_t>(std::min<uint64_t>(static_cast<uint64_t>(clampedExp) * 3 / 2, std::numeric_limits<uint32_t>::max()));
++	}
++
+ 	// Prevent power leveling
+ 	if (gbIsMultiplayer) {
+ 		// for low level characters experience gain is capped to 1/20 of current levels xp
