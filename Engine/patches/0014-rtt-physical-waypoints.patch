@@ -1,0 +1,306 @@
+diff --git a/Source/objects.h b/Source/objects.h
+--- a/Source/objects.h
++++ b/Source/objects.h
+@@ -290,6 +290,8 @@ extern bool LoadingMapObjects;
+ /** Tracks progress through the tome sequence that spawns Na-Krul (see OperateNakrulBook()) */
+ extern int NaKrulTomeSequence;
+ 
++void ClrAllObjects();
++
+ /**
+  * @brief Find an object given a point in map coordinates
+  *
+@@ -343,6 +345,26 @@ std::expected<void, std::string> SetMapObjects(const uint16_t *dunData, int star
+  * @param objPos tile coordinates
+  */
+ Object *AddObject(_object_id objType, Point objPos);
++/**
++ * @brief Returns true for Tristram town and every second dungeon floor
++ * (2, 4, 6, 8, 10, 12, 14, 16) -- one physical RTT waypoint location per
++ * branch midpoint/end, mirroring a D2-style waypoint network without
++ * needing one on every single floor.
++ */
++bool RttIsWaypointLevel(int level);
++/**
++ * @brief Places a physical, clickable RTT waypoint object near the given
++ * anchor tile on the current level, if this level should have one and it
++ * has not already been placed. Safe to call on every level load: it is a
++ * no-op for levels without a waypoint, and idempotent for ones that already
++ * have theirs (checked by scanning for an existing tagged object, not by
++ * re-checking a position -- the anchor itself can differ between visits
++ * depending on which entrance the player used).
++ * @param anchor Where to start searching for a free tile on a first
++ * placement (e.g. ViewPosition captured right after CreateLevel(), before
++ * entry-direction-specific overrides).
++ */
++void RttEnsureWaypointObject(Point anchor);
+ bool UpdateTrapState(Object &trap);
+ void OperateTrap(Object &trap);
+ void ProcessObjects();
+diff --git a/Source/objects.cpp b/Source/objects.cpp
+--- a/Source/objects.cpp
++++ b/Source/objects.cpp
+@@ -11,6 +11,7 @@
+ #include <string>
+ 
+ #include <algorithm>
++#include <array>
+ 
+ #include "DiabloUI/ui_flags.hpp"
+ #include "automap.h"
+@@ -38,6 +39,7 @@
+ #include "missiles.h"
+ #include "monster.h"
+ #include "options.h"
++#include "panels/waypoint_panel.hpp"
+ #include "qol/stash.h"
+ #include "stores.h"
+ #include "tables/objdat.h"
+@@ -3716,6 +3718,14 @@ std::expected<void, std::string> InitObjectGFX()
+ 		}
+ 	}
+ 
++	if (RttIsWaypointLevel(currlevel)) {
++		// OBJ_MCIRCLE1's graphic is otherwise only force-loaded via the
++		// Q_BETRAYER quest check below, which isn't guaranteed available in
++		// every game; RTT waypoint levels need it unconditionally.
++		const ObjectData &obj = AllObjects[OBJ_MCIRCLE1];
++		filesWidths[obj.ofindex] = obj.animWidth;
++	}
++
+ 	for (size_t id = 0, n = AllObjects.size(); id < n; ++id) {
+ 		const ObjectData &objectData = AllObjects[id];
+ 		if (objectData.minlvl != 0 && currlevel >= objectData.minlvl && currlevel <= objectData.maxlvl) {
+@@ -4135,6 +4145,74 @@ Object *AddObject(_object_id objType, Point objPos)
+ 	return &object;
+ }
+ 
++namespace {
++// Marks an OBJ_MCIRCLE1 instance as an RTT waypoint rather than a vanilla
++// Chamber of Bone (Q_BETRAYER) circle, since both share the same _object_id
++// and can legitimately coexist on the same level. AddMagicCircle() never
++// touches _oVar1.
++constexpr int RttWaypointSentinel = 1;
++
++bool IsRttWaypointObject(const Object &object)
++{
++	return object._otype == OBJ_MCIRCLE1 && object._oVar1 == RttWaypointSentinel;
++}
++} // namespace
++
++bool RttIsWaypointLevel(int level)
++{
++	if (level == 0)
++		return true;
++	return level >= 2 && level <= 16 && level % 2 == 0;
++}
++
++void RttEnsureWaypointObject(Point anchor)
++{
++	if (!RttIsWaypointLevel(currlevel))
++		return;
++
++	// Scan for an already-placed waypoint rather than checking fixed
++	// positions near `anchor`: town's ViewPosition varies with which of its
++	// several fixed entrances the player used (see CreateTown()), and a
++	// dungeon level's differs between its up- and down-stairs (ENTRY_MAIN
++	// vs ENTRY_PREV), so `anchor` is not a stable position to search around
++	// across revisits -- only a stable *starting point* for a first
++	// placement. Once placed, normal per-level save/load state (the same
++	// mechanism every other deterministic object already relies on)
++	// preserves the object and this scan finds it, regardless of which
++	// entrance was used on a later visit.
++	for (int i = 0; i < ActiveObjectCount; ++i) {
++		if (IsRttWaypointObject(Objects[ActiveObjects[i]]))
++			return;
++	}
++
++	// Small offsets around the entry anchor (not the exact stairs/spawn tile
++	// itself, which is typically occupied or awkward to stand on).
++	static constexpr std::array<Displacement, 5> Offsets {
++		Displacement { 2, 0 }, Displacement { 0, 2 }, Displacement { -2, 0 },
++		Displacement { 0, -2 }, Displacement { 1, 1 }
++	};
++
++	for (const Displacement &offset : Offsets) {
++		const Point candidate = anchor + offset;
++		if (!InDungeonBounds(candidate))
++			continue;
++		// Deliberately not IsTileOccupied(): that also checks dMonster/
++		// dPlayer, which are live per-client state that need not match
++		// between host and clients at the instant each of them independently
++		// runs this level-load code. Every client must derive the exact same
++		// placement from the same seed-deterministic inputs (level geometry
++		// and other seed-placed objects) the way vanilla's InitObjects()
++		// already does, or the waypoint would end up on a different tile per
++		// client.
++		if (IsTileSolid(candidate) || IsObjectAtPosition(candidate))
++			continue;
++		Object *waypoint = AddObject(OBJ_MCIRCLE1, candidate);
++		if (waypoint != nullptr)
++			waypoint->_oVar1 = RttWaypointSentinel;
++		return;
++	}
++}
++
+ bool UpdateTrapState(Object &trap)
+ {
+ 	if (trap._oVar4 != 0)
+@@ -4480,6 +4558,14 @@ void OperateObject(Player &player, Object &object)
+ 	case OBJ_SIGNCHEST:
+ 		OperateInnSignChest(player, object, sendmsg);
+ 		break;
++	case OBJ_MCIRCLE1:
++	case OBJ_MCIRCLE2:
++		// Vanilla Chamber of Bone (Q_BETRAYER) circles use the same
++		// _object_id and have no click behavior of their own; only react to
++		// the ones RttEnsureWaypointObject() tagged as RTT waypoints.
++		if (sendmsg && IsRttWaypointObject(object))
++			StartWaypointPanel();
++		break;
+ 	default:
+ 		break;
+ 	}
+diff --git a/Source/player.cpp b/Source/player.cpp
+--- a/Source/player.cpp
++++ b/Source/player.cpp
+@@ -3011,10 +3011,13 @@ bool RttWarpToLevel(Player &player, uint8_t level)
+     // Mirrors the vanilla town-warp entrances in Source/levels/trigs.cpp (which
+     // gate on pTownWarps per dungeon *branch*): RTT waypoints extend that to
+     // per-level granularity using the already-persisted, already-multiplayer-
+-    // safe _pLvlVisited[] array instead of adding new save state. Warping is
+-    // only offered from town, matching where the vanilla entrances live.
++    // safe _pLvlVisited[] array instead of adding new save state. Originally
++    // only offered from town; physical RTT waypoint objects (see
++    // RttEnsureWaypointObject() in objects.cpp) now also exist on every
++    // second dungeon floor, D2-style, so this no longer restricts the
++    // player's current level -- the caller (a click on a physical waypoint,
++    // or the town-only hotkey) already establishes legitimate context.
+     if (&player != MyPlayer || level < 1 || level > 16) return false;
+-    if (!player.isOnLevel(0)) return false;
+     if (!player._pLvlVisited[level]) return false;
+     StartNewLvl(player, WM_DIABTOWNWARP, level);
+     return true;
+diff --git a/Source/diablo.cpp b/Source/diablo.cpp
+--- a/Source/diablo.cpp
++++ b/Source/diablo.cpp
+@@ -3304,6 +3304,16 @@ std::expected<void, std::string> LoadGameLevelTown(bool firstflag, lvl_entry lvl
+ 		}
+ 	}
+ 
++	// Town never placed any objects before RttEnsureWaypointObject(), so
++	// nothing ever needed to reset Objects/ActiveObjectCount on entry here
++	// the way InitObjects() does for a fresh dungeon level. dObject itself
++	// is already zeroed by InitGlobals() (called from CreateDungeon() for
++	// every level, town included), but the object array/active-index list
++	// is not -- without this, RttEnsureWaypointObject()'s "does a waypoint
++	// already exist" scan could see a leftover object from whichever
++	// dungeon level was visited immediately before.
++	ClrAllObjects();
++
+ 	InitTowners();
+ 	InitStash();
+ 	InitVisualStore();
+@@ -3380,6 +3390,11 @@ std::expected<void, std::string> LoadGameLevelSetLevel(bool firstflag, lvl_entry
+ std::expected<void, std::string> LoadGameLevelStandardLevel(bool firstflag, lvl_entry lvldir, const Player &myPlayer)
+ {
+ 	CreateLevel(lvldir);
++	// Captured before any entry-direction-specific override (e.g.
++	// LoadGameLevelReturn() below reassigns ViewPosition for a return-warp
++	// entry): RttEnsureWaypointObject() needs one stable anchor per level,
++	// not one that shifts depending on how the player got here.
++	const Point rttWaypointAnchor = ViewPosition;
+ 
+ 	IncProgress();
+ 
+@@ -3400,6 +3415,10 @@ std::expected<void, std::string> LoadGameLevelStandardLevel(bool firstflag, lvl_
+ 		IncProgress();
+ 
+ 		RETURN_IF_ERROR(InitMissileGFX());
++		// Town never goes through LoadAllGFX()/InitObjectGFX() otherwise --
++		// it has no other objects -- but it does need the RTT waypoint
++		// circle's graphic loaded.
++		RETURN_IF_ERROR(InitObjectGFX());
+ 
+ 		IncProgress();
+ 		IncProgress();
+@@ -3431,6 +3450,8 @@ std::expected<void, std::string> LoadGameLevelStandardLevel(bool firstflag, lvl_
+ 		RETURN_IF_ERROR(LoadGameLevelDungeon(firstflag, lvldir, myPlayer));
+ 	}
+ 
++	RttEnsureWaypointObject(rttWaypointAnchor);
++
+ 	PlayDungMsgs();
+ 
+ 	if (UseMultiplayerQuests())
+diff --git a/test/rtt_phase4_test.cpp b/test/rtt_phase4_test.cpp
+--- a/test/rtt_phase4_test.cpp
++++ b/test/rtt_phase4_test.cpp
+@@ -4,10 +4,12 @@
+ #include <set>
+ #include "engine/assets.hpp"
+ #include "game_mode.hpp"
++#include "levels/dun_tile_data.hpp"
+ #include "multi.h"
+ #include "items.h"
+ #include "mods/mod_identity.h"
+ #include "msg.h"
++#include "objects.h"
+ #include "pack.h"
+ #include "player.h"
+ #include "spells.h"
+@@ -280,17 +282,45 @@ TEST_F(RttPhase4, WarpToLevelGating)
+     EXPECT_FALSE(RttWarpToLevel(*MyPlayer, 17)); // beyond Diablo 1's 16 dungeon levels
+     EXPECT_FALSE(RttWarpToLevel(Players[1], 5)); // never warps someone else
+ 
+-    MyPlayer->plrlevel = 3; // simulate standing mid-dungeon, not in town
+-    EXPECT_FALSE(RttWarpToLevel(*MyPlayer, 5)); // waypoints are only usable from town
++    // Physical RTT waypoint objects now exist on dungeon floors too (see
++    // RttEnsureWaypointObject()), so warping is no longer restricted to
++    // town -- the visited-level guard still applies regardless of where the
++    // player currently stands.
++    MyPlayer->plrlevel = 3; // simulate standing mid-dungeon
++    EXPECT_FALSE(RttWarpToLevel(*MyPlayer, 9)); // level 9 was never visited
+     MyPlayer->plrlevel = 0;
+ 
+-    // The one combination that would actually succeed (in town, level 1-16,
+-    // _pLvlVisited[level] true) is deliberately not exercised here: that path
+-    // calls StartNewLvl(), which drives real dungeon generation/level-load --
+-    // exactly the kind of heavy engine subsystem this headless contract test
+-    // must not depend on (see the InitCursor/objcurs.cel fix earlier in this
+-    // file). The four guards above are what gate reaching that call, and are
+-    // fully covered.
++    // The one combination that would actually succeed (level 1-16,
++    // _pLvlVisited[level] true, regardless of current location) is
++    // deliberately not exercised here: that path calls StartNewLvl(), which
++    // drives real dungeon generation/level-load -- exactly the kind of heavy
++    // engine subsystem this headless contract test must not depend on (see
++    // the InitCursor/objcurs.cel fix earlier in this file). The guards above
++    // are what gate reaching that call, and are fully covered.
++}
++TEST_F(RttPhase4, WaypointLevelSelection)
++{
++    // Town plus every second dungeon floor: one waypoint per branch
++    // midpoint/end (Cathedral 2/4, Catacombs 6/8, Caves 10/12, Hell 14/16).
++    EXPECT_TRUE(RttIsWaypointLevel(0));
++    for (int level = 1; level <= 16; ++level) {
++        EXPECT_EQ(RttIsWaypointLevel(level), level % 2 == 0) << "level " << level;
++    }
++    EXPECT_FALSE(RttIsWaypointLevel(17));
++    EXPECT_FALSE(RttIsWaypointLevel(-1));
++}
++TEST_F(RttPhase4, EnsureWaypointObjectNoOpOffWaypointLevel)
++{
++    // RttEnsureWaypointObject() must short-circuit before touching any
++    // dungeon/object state on a level that isn't in the waypoint set --
++    // levels 1-16 that aren't in it don't have a generated layout in this
++    // headless test, so touching tile/object state here would be unsafe.
++    const uint8_t savedLevel = currlevel;
++    const int activeBefore = ActiveObjectCount;
++    currlevel = 3;
++    RttEnsureWaypointObject({ 0, 0 });
++    EXPECT_EQ(ActiveObjectCount, activeBefore);
++    currlevel = savedLevel;
+ }
+ } // namespace
+ } // namespace devilution
