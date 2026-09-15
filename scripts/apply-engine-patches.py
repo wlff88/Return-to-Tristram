@@ -16,6 +16,15 @@ PATCH_DIR = ROOT / "Engine" / "patches"
 # whitespace differences while still requiring the actual source text to match.
 PATCH_MATCH_ARGS = ["--ignore-space-change", "--ignore-whitespace"]
 
+# Patches 0006-0008 were edited manually after generation. Their context is
+# valid, but one or more @@ hunk line counts can be stale. Keep older patches on
+# the normal git-apply path and allow recount only for this known patch tail.
+RECOUNT_PATCHES = {
+    "0006-rtt-normal-xp-multiplier.patch",
+    "0007-rtt-phase4-itemization.patch",
+    "0008-rtt-necromancer-vertical-slice.patch",
+}
+
 
 def run_git(
     args: list[str],
@@ -46,12 +55,9 @@ def run_apply(
         flags.append("--check")
 
     result = run_git(["apply", *flags, str(patch)], cwd=cwd)
-    if result.returncode == 0 or "corrupt patch" not in result.stderr.lower():
+    if result.returncode == 0 or patch.name not in RECOUNT_PATCHES:
         return result
 
-    # Some newer RTT patches were edited manually after generation and can have
-    # stale @@ line counts. Only those malformed patches should use --recount;
-    # applying it globally changes matching behavior for older valid patches.
     return run_git(["apply", "--recount", *flags, str(patch)], cwd=cwd)
 
 
