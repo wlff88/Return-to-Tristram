@@ -64,6 +64,9 @@ jobs:
       - name: Install CMake
         uses: lukka/get-cmake@latest
 
+      - name: Install sccache
+        uses: mozilla-actions/sccache-action@v0.0.6
+
       - name: Cache pinned vcpkg
         uses: actions/cache@v4
         with:
@@ -167,6 +170,8 @@ jobs:
 
       - name: Build pinned DevilutionX with Visual Studio MSVC
         shell: pwsh
+        env:
+          SCCACHE_GHA_ENABLED: "true"
         run: |
           $lastCode = 1
           $engine = 'Engine/devilutionx'
@@ -199,6 +204,10 @@ jobs:
             }
           }
           exit $lastCode
+
+      - name: sccache stats
+        shell: pwsh
+        run: sccache --show-stats
 
       - name: Verify executable
         shell: pwsh

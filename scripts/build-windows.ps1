@@ -56,6 +56,19 @@ if ($Sol2Source) {
     Write-Host "Using prefetched sol2: $ResolvedSol2"
 }
 
+# Opt-in, not required: only wire the compiler launcher when sccache is on
+# PATH (CI installs it explicitly) so a developer workstation without it
+# builds exactly as before.
+$Sccache = Get-Command sccache -ErrorAction SilentlyContinue
+if ($Sccache) {
+    $ConfigureArgs += "-DCMAKE_C_COMPILER_LAUNCHER=sccache"
+    $ConfigureArgs += "-DCMAKE_CXX_COMPILER_LAUNCHER=sccache"
+    Write-Host "sccache found: enabling compiler cache"
+}
+else {
+    Write-Host "sccache not found on PATH: building without a compiler cache"
+}
+
 cmake @ConfigureArgs
 if ($LASTEXITCODE -ne 0) {
     throw "CMake configure failed with exit code $LASTEXITCODE"
