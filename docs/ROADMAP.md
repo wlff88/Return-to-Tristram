@@ -85,7 +85,7 @@ This roadmap reflects the current single-engine Return to Tristram architecture.
 
 **Runtime exit criterion:** one real Windows run confirms `docs/PHASE3_RUNTIME_ACCEPTANCE.md` and records `phase3-*.json` with `passed: true`. Until then Phase 3 remains manual-runtime-acceptance pending and version stays `0.1.0-dev`.
 
-## Phase 4 — Itemisation, skills and classes — ACTIVE
+## Phase 4 — Itemisation, skills and classes — ENGINEERING ACTIVE / NECROMANCER RUNTIME ACCEPTANCE PENDING
 
 ### Foundation
 
@@ -101,20 +101,22 @@ This roadmap reflects the current single-engine Return to Tristram architecture.
 
 ### Gameplay engines
 
-- [ ] Rare item generation for fresh eligible drops only
-- [ ] Exact Rare reconstruction from persisted compact metadata
-- [ ] Tiered affix application and Rare naming/UI
-- [ ] RTT unique-item engine bridge
-- [ ] Set-item engine bridge and set-bonus evaluation
-- [ ] Crafting mutation engine using deterministic item reconstruction
-- [ ] Active skill progression and upgrade selection
-- [ ] Passive/notable/mastery progression
-- [ ] Class activation/persistence layer
-- [ ] Playable Necromancer vertical slice
-- [ ] Save migration/item round-trip tests for generated items and progression
-- [ ] Multiplayer reconstruction tests for RTT item metadata and class progression
+- [x] Rare item generation for fresh eligible drops only (`SetupAllItems`/`RecreateItem` only stamp RTT metadata on fresh generation; loaded/recreated no-marker items are never touched)
+- [x] Exact Rare reconstruction from persisted compact metadata (deterministic `_iSeed + compactCode + slot` rebuild; covered by the `generate -> pack -> unpack/recreate -> compare` contract test)
+- [x] Tiered affix application and Rare naming/UI (stable names derived from base identity + seed, not from mutable `dwBuff`; item comparison tooltip already displays RTT Rare stats since Phase 3)
+- [x] RTT unique-item engine bridge (Ashen Covenant, Boneward, Gravewhisper prototypes round-trip correctly)
+- [x] Set-item engine bridge and set-bonus evaluation (Ossuary Regalia equip-count -> `rttBoneArmorRank` bonus verified on equip/unequip via `CalcPlrItemVals`)
+- [x] Crafting mutation engine using deterministic item reconstruction (`RttPrepareCraft`/`RttCraftHeldRare` preserve base/level/seed and fail atomically on bad target/cost)
+- [x] Active skill progression and upgrade selection (`RttChooseProgression` unlock/spend/gate logic for the four Necromancer upgrade slots)
+- [x] Passive/notable/mastery progression baseline (armor-upgrade slot verified to reduce incoming damage via the mana-shield path)
+- [x] Class activation/persistence layer (`EnsureRttNecromancerProgression` gates on `HeroClass::Sorcerer` + active "rtt" mod; state round-trips through `PackPlayer`/`UnPackPlayer`)
+- [x] Save migration/item round-trip tests for generated items and progression (Save Schema v1 -> v2 migration; CI-enforced `rtt_phase4_test` contract, Windows + Linux)
+- [~] Multiplayer reconstruction tests for RTT item metadata and class progression — item metadata reconstruction is tested host + a second client (`PackNetItem`/`UnPackNetItem` compared across two `Player` instances); progression-choice network **broadcast** itself (the `broadcast` parameter on `RttChooseProgression`) is not yet exercised by a host/client test
+- [ ] Playable Necromancer vertical slice — **not yet manually verified**; the engineering contracts above are CI-green but no one has played a Necromancer through the original campaign on a real Windows build yet
 
-**Exit criterion:** at least one Necromancer build can progress through the original campaign using RTT Rare/Unique/Set itemisation, skills and class mechanics without item morphing after save/load or network reconstruction.
+**Engineering exit criterion:** the round-trip/crafting/progression/save-migration contracts above validate in CI on both platforms. **Satisfied as of the Phase 4 foundation merge** ([PR #23](https://github.com/wlff88/Return-to-Tristram/pull/23) — engine-side gates were red on merge and fixed forward: `rtt_phase4_test` was calling `CreatePlayer()`, which needs the proprietary `objcurs.cel`; it unconditionally called networked `addExperience()` with no loopback provider bootstrapped; and the Windows job resolved unpacked test assets from the wrong per-config directory).
+
+**Runtime exit criterion (unchanged, not yet met):** at least one Necromancer build can progress through the original campaign using RTT Rare/Unique/Set itemisation, skills and class mechanics without item morphing after save/load or network reconstruction, confirmed on a real Windows run. Multiplayer progression-choice broadcast should get its own host/client test before this is called done.
 
 ## Phase 5 — Resurrected campaign
 

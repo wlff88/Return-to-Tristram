@@ -8,7 +8,7 @@ Last status update: 2026-09-15
 - **Phase 1 — DevilutionX baseline:** engine/build and acceptance harness complete; real Windows runtime acceptance pending
 - **Phase 2 — Mod framework:** COMPLETE
 - **Phase 3 — Classic+:** ENGINEERING COMPLETE / MANUAL RUNTIME ACCEPTANCE PENDING
-- **Phase 4 — Itemisation, skills and classes:** ACTIVE — stable data/save foundation implemented; gameplay engine slices in progress
+- **Phase 4 — Itemisation, skills and classes:** ENGINEERING COMPLETE for the foundation + first Necromancer vertical slice (Rare/Unique/Set round-trip, crafting, skill progression, save migration all CI-green) / **NECROMANCER CAMPAIGN RUNTIME ACCEPTANCE PENDING** — nobody has played it through the original campaign on a real Windows build yet
 - **Later phases:** planned, not yet feature-complete
 
 ## Pinned engine baseline
@@ -41,25 +41,28 @@ The sparse TSV exporter still rejects new upstream rows. That remains intentiona
 - Warrior/Rogue/Sorcerer starter gold override: 200 gold;
 - dedicated Phase 3 runtime checklist and JSON evidence collector.
 
-## Phase 4 foundation implemented
+## Phase 4 foundation and first engine slice implemented
 
-Phase 4 has started with compatibility boundaries first rather than with ad-hoc drops.
+Phase 4 started with compatibility boundaries first, then landed a working engine slice behind them ([PR #23](https://github.com/wlff88/Return-to-Tristram/pull/23)):
 
 - content registry schema v2 adds `set` and `skill` namespaces while preserving append-only semantic IDs;
 - four initial item archetypes: Bone Wand, Ossuary Blade, Graveward Shield and Boneweave Robe;
 - 12 immutable tiered affixes with compact codes 1–12;
 - three prototype uniques: Ashen Covenant, Boneward and Gravewhisper;
-- first set contract: Ossuary Regalia;
-- three crafting recipe contracts;
-- five-skill Necromancer progression catalog: Bone Spike, Bone Armor, Grave Pact, Soul Siphon and Ossuary Mastery;
-- first RTT logical class: `RTT_CLASS_0002` Necromancer;
+- first set contract: Ossuary Regalia, with a working `rttBoneArmorRank` equip-count bonus in `CalcPlrItemVals`;
+- three crafting recipe contracts backed by `RttPrepareCraft`/`RttCraftHeldRare` (atomic on bad target/cost, preserves base/level/seed);
+- five-skill Necromancer progression catalog: Bone Spike, Bone Armor, Grave Pact, Soul Siphon and Ossuary Mastery, with `RttChooseProgression` gating unlock/spend and the armor slot verified to reduce incoming damage;
+- first RTT logical class: `RTT_CLASS_0002` Necromancer, gated on `HeroClass::Sorcerer` + the active "rtt" mod via `EnsureRttNecromancerProgression`;
 - Save Schema v2 with sequential v1 -> v2 migration and new `itemization_state` / `progression_state`;
 - compact item metadata v1 reserves only `Item.dwBuff` bits 5–31, leaving DevilutionX bits 0–4 untouched;
 - four 6-bit compact affix slots are reserved from the beginning, avoiding a format migration when RTT moves to 2-prefix/2-suffix Rares;
+- fresh-only generation: `SetupAllItems`/`RecreateItem` only stamp RTT metadata on new drops; loaded/recreated no-marker items are never touched;
 - Lua itemization/crafting/skills/classes modules now load the Phase 4 runtime catalog;
-- CI validates stable references, compact-code uniqueness, bit-mask separation and save migration contracts.
+- CI validates stable references, compact-code uniqueness, bit-mask separation, save migration contracts, and a `generate -> pack -> unpack/recreate -> compare` round-trip for Rares/Uniques/Sets plus a `PackPlayer`/`UnPackPlayer` round-trip for Necromancer progression state, on both Windows MSVC and Linux.
 
-The next engine slice must implement fresh-only Rare generation and exact reconstruction from persisted RTT metadata. A pre-Phase-4 saved item with no RTT marker must remain unchanged when loaded by a newer build.
+**Fixed forward after merge (2026-09-15):** the `build` and `contracts` gates on PR #23 were red at merge time and fixed in follow-up commits rather than merged broken: `rtt_phase4_test`'s `SetUp()` called `CreatePlayer()`, which needs the proprietary `objcurs.cel` game asset unavailable (and undesirable) in CI — replaced with a manual, cursor-free reproduction of the same stat/level setup. `addExperience()` unconditionally routes through `NetSendCmdParam1`, even single-player, and segfaulted on a null network provider — fixed by bootstrapping the in-memory loopback provider once, mirroring `InitSingle()`. The Windows job resolved unpacked test assets (`txtdata/items/itemdat.tsv`) from the wrong directory, because DevilutionX looks them up relative to the executable's own folder (`SDL_GetBasePath()+"assets/"`) while CMake's `copy_files()` stages them at the plain build directory, not the per-config `Release/` subdirectory MSVC uses — fixed by mirroring the assets alongside the test binary in the workflow.
+
+**Not yet done:** nobody has manually played a Necromancer through the original campaign on a real Windows build using this itemisation/progression stack, and multiplayer network **broadcast** of a progression choice (as opposed to metadata reconstruction, which is tested) has no host/client test yet. Both remain open before Phase 4's runtime exit criterion is met.
 
 See `docs/PHASE4_ITEMISATION_SKILLS_CLASSES.md` for the serialization and progression contract.
 
@@ -75,11 +78,11 @@ The development version therefore remains `0.1.0-dev`. Promotion to the first Cl
 
 ## Current priority order
 
-1. finish/merge the Phase 3 weapon-swap and finalization trees once Windows CI is green;
-2. merge the Phase 4 stable data/save foundation;
-3. implement deterministic Rare generation + exact `dwBuff` reconstruction;
-4. implement RTT unique/set engine bridges and metadata-safe crafting;
-5. implement active/passive progression and make the Necromancer vertical slice playable;
-6. add save round-trip and multiplayer reconstruction regression tests.
+1. keep Phase 1/Phase 3 real-PC acceptance as a deferred release gate;
+2. get real Windows/controller hands on a Necromancer save and play it through the original campaign (Tristram -> Diablo) to close Phase 4's runtime exit criterion;
+3. add a host/client test for `RttChooseProgression`'s network broadcast path (item metadata network reconstruction is already covered; the progression-choice broadcast itself is not);
+4. extend the Rare engine from the current single-item-type prototypes (Sword/Staff/Shield/LightArmor) to the full base-item catalogue;
+5. add a player-facing way to call `RttChooseProgression()` — it exists and is CI-tested, but nothing calls it outside the test yet (no menu/hotkey UI), so a real player has no way to spend a Necromancer upgrade point;
+6. begin Phase 5 (Resurrected campaign) planning once the above close out Phase 4.
 
 See `docs/PHASE2_MOD_FRAMEWORK.md`, `docs/PHASE3_CLASSIC_PLUS.md`, `docs/PHASE3_RUNTIME_ACCEPTANCE.md`, `docs/PHASE3_WEAPON_SWAP.md`, `docs/PHASE4_ITEMISATION_SKILLS_CLASSES.md`, `docs/MULTIPLAYER_COMPATIBILITY.md` and `docs/ROADMAP.md`.
