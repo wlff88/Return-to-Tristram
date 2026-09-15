@@ -38,7 +38,7 @@ This roadmap reflects the current single-engine Return to Tristram architecture.
 
 **Exit criterion:** one real Windows runtime acceptance run records `passed: true` after launch -> Tristram -> Cathedral -> combat -> save -> reload, controller flow and a basic multiplayer connection test.
 
-## Phase 2 — Mod framework — ACTIVE
+## Phase 2 — Mod framework — COMPLETE
 
 - [x] Initial feature flag/config file
 - [x] Runtime package skeleton
@@ -50,14 +50,16 @@ This roadmap reflects the current single-engine Return to Tristram architecture.
 - [x] First presentation-only Lua engine extension hook
 - [x] Lua-driven loot-filter demonstrator
 - [x] Monster resistance/immunity display demonstrator
-- [ ] Expand table map to items, affixes, uniques, monsters, spells and all class tables
-- [ ] Define stable RTT content-ID registry
-- [ ] Define RTT save-version/migration layer before generated item systems expand
-- [ ] Formal module lifecycle/hook interfaces
-- [ ] One demonstrator feature per gameplay module
-- [ ] Multiplayer compatibility policy for Lua/TSV/MPQ/runtime extensions
+- [x] Expand table map to items, affixes, uniques, monsters, spells and all class tables
+- [x] Define stable RTT content-ID registry
+- [x] Define RTT save-version/migration layer before generated item systems expand
+- [x] Formal module lifecycle/hook interfaces
+- [x] One demonstrator feature per gameplay module
+- [x] Multiplayer compatibility policy for Lua/TSV/MPQ/runtime extensions
+- [x] Generate a runtime compatibility contract with registry/schema/policy fingerprints
+- [x] CI validation of the complete Phase 2 framework contract
 
-**Exit criterion:** RTT can add/override content in every planned gameplay family without ad-hoc engine edits, with stable IDs and an explicit save/network policy.
+**Exit criterion:** RTT can add/override content in every planned gameplay family without ad-hoc engine edits, with stable IDs and an explicit save/network policy. **Satisfied.**
 
 ## Phase 3 — Classic+ — STARTED
 
@@ -66,6 +68,7 @@ This roadmap reflects the current single-engine Return to Tristram architecture.
 - [x] Exact monster resistance/immunity display
 - [x] Use upstream stash instead of duplicating it
 - [x] Use upstream 12 spell hotkeys instead of duplicating them
+- [ ] Diablo II-style visual vendor inventory (RTT art direction)
 - [ ] Alternate weapon set / weapon swap
 - [ ] Advanced item tooltip
 - [ ] Loot filter 2.0 with user-configurable rules/presets
@@ -79,7 +82,7 @@ This roadmap reflects the current single-engine Return to Tristram architecture.
 
 ## Phase 4 — Itemisation, skills and classes
 
-- [ ] Stable base item registry
+- [ ] Stable base item registry populated with released content
 - [ ] Rare item generation
 - [ ] Tiered affix system
 - [ ] RTT unique-item framework

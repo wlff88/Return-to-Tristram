@@ -29,8 +29,14 @@ jobs:
       - name: Validate RTT source data
         run: python scripts/validate-data.py
 
+      - name: Validate Phase 2 RTT Mod Framework
+        run: python scripts/validate-phase2-framework.py
+
       - name: Generate runtime tables
         run: python scripts/export-mod-data.py --output out/ci-mod
+
+      - name: Generate runtime framework contract
+        run: python scripts/generate-framework-data.py --output out/ci-mod
 
       - name: Validate generated Experience table
         run: |
@@ -44,10 +50,18 @@ jobs:
           grep -q $'^gold\t200$' out/ci-mod/txtdata/classes/rogue/starting_loadout.tsv
           grep -q $'^gold\t200$' out/ci-mod/txtdata/classes/sorcerer/starting_loadout.tsv
 
+      - name: Validate generated Phase 2 runtime contract
+        run: |
+          test -f out/ci-mod/lua/mods/rtt/generated/content_ids.lua
+          test -f out/ci-mod/lua/mods/rtt/generated/contract.lua
+          grep -q 'frameworkVersion = 1' out/ci-mod/lua/mods/rtt/generated/contract.lua
+          grep -q 'saveSchemaVersion = 1' out/ci-mod/lua/mods/rtt/generated/contract.lua
+          grep -q 'networkProtocolVersion = 1' out/ci-mod/lua/mods/rtt/generated/contract.lua
+
       - name: Validate RTT loot filter runtime files
         run: |
           test -f packaging/mod/lua/mods/rtt/qol/loot_filter.lua
-          grep -q 'ShouldShowItemLabel' packaging/mod/lua/mods/rtt/init.lua
+          grep -q 'ShouldShowItemLabel' packaging/mod/lua/mods/rtt/modules/qol.lua
           grep -q 'minNormalEquipmentValue = 200' packaging/mod/lua/mods/rtt/qol/loot_filter.lua
 
       - name: Validate runtime manifest
