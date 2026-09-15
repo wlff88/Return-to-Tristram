@@ -16,11 +16,22 @@ if ($LASTEXITCODE -ne 0) {
     throw 'RTT data export failed.'
 }
 
-# DevilutionX discovers a loose mod named `return-to-tristram` only when this
-# exact package entry exists. The implementation itself may stay under mods.rtt.*.
+python (Join-Path $PSScriptRoot 'generate-framework-data.py') --output $Target
+if ($LASTEXITCODE -ne 0) {
+    throw 'RTT framework data generation failed.'
+}
+
 $DiscoveryEntry = Join-Path $Target 'lua/mods/return-to-tristram/init.lua'
 if (-not (Test-Path $DiscoveryEntry)) {
     throw 'RTT staging is missing the DevilutionX loose-mod discovery entry point.'
+}
+foreach ($GeneratedRuntimeFile in @(
+    'lua/mods/rtt/generated/content_ids.lua',
+    'lua/mods/rtt/generated/contract.lua'
+)) {
+    if (-not (Test-Path (Join-Path $Target $GeneratedRuntimeFile))) {
+        throw "RTT staging is missing generated framework runtime file: $GeneratedRuntimeFile"
+    }
 }
 
 Write-Host "Staged Return to Tristram mod at: $Target"
