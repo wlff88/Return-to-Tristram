@@ -1,0 +1,433 @@
+--- a/Source/items.h
++++ b/Source/items.h
+@@ -538,7 +538,10 @@
+ Item *SpawnUnique(_unique_items uid, Point position, std::optional<int> level = std::nullopt, bool sendmsg = true, bool exactPosition = false);
+ void GetSuperItemSpace(Point position, int8_t inum);
+ _item_indexes RndItemForMonsterLevel(int8_t monsterLevel);
+-void SetupAllItems(const Player &player, Item &item, _item_indexes idx, uint32_t iseed, int lvl, int uper, bool onlygood, bool pregen, int uidOffset = 0, bool forceNotUnique = false);
++void SetupAllItems(const Player &player, Item &item, _item_indexes idx, uint32_t iseed, int lvl, int uper, bool onlygood, bool pregen, int uidOffset = 0, bool forceNotUnique = false, bool generateRttMetadata = true);
+ void TryRandomUniqueItem(Item &item, _item_indexes idx, int8_t mLevel, int uper, bool onlygood, bool pregen);
++bool RttReforgeHeldRare(Player &player);
++bool RttRaiseHeldAffixTier(Player &player);
++bool RttRerollHeldAffixSlot(Player &player);
+ void SpawnItem(Monster &monster, Point position, bool sendmsg, bool spawn = false);
+--- a/Source/items.cpp
++++ b/Source/items.cpp
+@@ -42,6 +42,7 @@
+ #include "minitext.h"
+ #include "monster.h"
++#include "mods/mod_identity.h"
+ #include "msg.h"
+ #include "multi.h"
+ #include "objects.h"
+@@ -126,6 +127,199 @@ char OilNames[10][25] = {
+ 	N_("Oil of Imperviousness")
+ };
++
++constexpr uint32_t RttUpstreamBuffMask = 0x0000001FU;
++constexpr uint32_t RttMarkerMask = 0x80000000U;
++constexpr uint32_t RttRarityMask = 0x60000000U;
++constexpr unsigned RttRarityShift = 29;
++constexpr std::array<uint32_t, 4> RttAffixMasks { 0x000007E0U, 0x0001F800U, 0x007E0000U, 0x1F800000U };
++constexpr std::array<unsigned, 4> RttAffixShifts { 5, 11, 17, 23 };
++
++enum class RttItemRarity : uint8_t {
++	None = 0,
++	Rare = 1,
++	Set = 2,
++	Unique = 3,
++};
++
++bool IsRttRuntime()
++{
++	return GetActiveModSaveExtension() == "rtt";
++}
++
++bool HasRttItemMetadata(const Item &item)
++{
++	return (item.dwBuff & RttMarkerMask) != 0;
++}
++
++RttItemRarity GetRttItemRarity(const Item &item)
++{
++	if (!HasRttItemMetadata(item))
++		return RttItemRarity::None;
++	return static_cast<RttItemRarity>((item.dwBuff & RttRarityMask) >> RttRarityShift);
++}
++
++uint8_t GetRttAffixCode(const Item &item, size_t slot)
++{
++	return static_cast<uint8_t>((item.dwBuff & RttAffixMasks[slot]) >> RttAffixShifts[slot]);
++}
++
++uint32_t RttMix(uint32_t value)
++{
++	value ^= value >> 16;
++	value *= 0x7FEB352DU;
++	value ^= value >> 15;
++	value *= 0x846CA68BU;
++	value ^= value >> 16;
++	return value;
++}
++
++int RttRoll(const Item &item, uint8_t code, int minimum, int maximum)
++{
++	const uint32_t span = static_cast<uint32_t>(maximum - minimum + 1);
++	return minimum + static_cast<int>(RttMix(item._iSeed ^ (static_cast<uint32_t>(code) * 0x9E3779B9U)) % span);
++}
++
++uint8_t RttTierCode(int level, uint8_t tier1Code)
++{
++	if (level >= 20)
++		return tier1Code + 2;
++	if (level >= 10)
++		return tier1Code + 1;
++	return tier1Code;
++}
++
++void SetRttMetadata(Item &item, RttItemRarity rarity, const std::array<uint8_t, 4> &codes)
++{
++	item.dwBuff &= RttUpstreamBuffMask;
++	item.dwBuff |= RttMarkerMask | (static_cast<uint32_t>(rarity) << RttRarityShift);
++	for (size_t i = 0; i < codes.size(); ++i)
++		item.dwBuff |= (static_cast<uint32_t>(codes[i]) << RttAffixShifts[i]) & RttAffixMasks[i];
++}
++
++std::array<uint8_t, 4> BuildRttRareCodes(const Item &item, int level, uint32_t salt)
++{
++	std::array<uint8_t, 4> codes {};
++	const uint32_t selector = RttMix(item._iSeed ^ salt ^ 0x52545434U);
++
++	if (item.isWeapon())
++		codes[0] = RttTierCode(level, 1);
++	else if (item.isArmor() || item.isShield() || item.isHelm())
++		codes[0] = RttTierCode(level, 4);
++
++	const uint8_t fire = RttTierCode(level, 7);
++	const uint8_t lightning = RttTierCode(level, 10);
++	if ((selector & 1U) == 0) {
++		codes[1] = fire;
++		codes[2] = lightning;
++	} else {
++		codes[1] = lightning;
++		codes[2] = fire;
++	}
++
++	return codes;
++}
++
++void ApplyRttAffix(Item &item, uint8_t code)
++{
++	if (code >= 1 && code <= 3) {
++		static constexpr std::array<int, 3> Min { 8, 13, 21 };
++		static constexpr std::array<int, 3> Max { 12, 20, 30 };
++		const size_t tier = code - 1;
++		item._iPLDam += RttRoll(item, code, Min[tier], Max[tier]);
++		return;
++	}
++	if (code >= 4 && code <= 6) {
++		static constexpr std::array<int, 3> Min { 8, 13, 21 };
++		static constexpr std::array<int, 3> Max { 12, 20, 30 };
++		const size_t tier = code - 4;
++		item._iPLAC += RttRoll(item, code, Min[tier], Max[tier]);
++		return;
++	}
++	if (code >= 7 && code <= 9) {
++		static constexpr std::array<int, 3> Min { 6, 11, 19 };
++		static constexpr std::array<int, 3> Max { 10, 18, 28 };
++		const size_t tier = code - 7;
++		item._iPLFR += RttRoll(item, code, Min[tier], Max[tier]);
++		return;
++	}
++	if (code >= 10 && code <= 12) {
++		static constexpr std::array<int, 3> Min { 6, 11, 19 };
++		static constexpr std::array<int, 3> Max { 10, 18, 28 };
++		const size_t tier = code - 10;
++		item._iPLLR += RttRoll(item, code, Min[tier], Max[tier]);
++	}
++}
++
++std::string RttRareName(const Item &item)
++{
++	static constexpr std::array<std::string_view, 8> First { "Grave", "Bone", "Ash", "Dread", "Marrow", "Crypt", "Soul", "Night" };
++	static constexpr std::array<std::string_view, 8> Second { "Bite", "Ward", "Oath", "Song", "Brand", "Veil", "Grasp", "Spite" };
++	const uint32_t mixed = RttMix(item._iSeed ^ item.dwBuff);
++	return StrCat(First[mixed % First.size()], " ", Second[(mixed >> 8) % Second.size()]);
++}
++
++void ApplyRttItemMetadata(Item &item)
++{
++	if (!HasRttItemMetadata(item))
++		return;
++
++	for (size_t slot = 0; slot < RttAffixMasks.size(); ++slot)
++		ApplyRttAffix(item, GetRttAffixCode(item, slot));
++
++	const RttItemRarity rarity = GetRttItemRarity(item);
++	item._iMagical = ITEM_QUALITY_MAGIC;
++	std::string name;
++	if (rarity == RttItemRarity::Rare) {
++		name = RttRareName(item);
++	} else if (rarity == RttItemRarity::Set) {
++		name = item.isShield() ? "Ossuary Guard" : "Ossuary Vestment";
++	} else if (rarity == RttItemRarity::Unique) {
++		if (item._itype == ItemType::Staff) {
++			name = "Ashen Covenant";
++			item._iSplLvlAdd += 1;
++		} else if (item.isShield()) {
++			name = "Boneward";
++			item._iPLGetHit -= 5;
++		} else {
++			name = "Gravewhisper";
++			item._iSplLvlAdd += 1;
++		}
++	}
++	if (!name.empty())
++		CopyUtf8(item._iIName, name, ItemNameLength);
++	CalcItemValue(item);
++}
++
++void MaybeGenerateRttItemMetadata(Item &item, int level, bool pregen)
++{
++	if (!IsRttRuntime() || pregen || !item.isEquipment() || item._iMagical == ITEM_QUALITY_UNIQUE || HasRttItemMetadata(item))
++		return;
++
++	const uint32_t rarityRoll = RttMix(item._iSeed ^ 0xA17E4D31U) % 100;
++	if (rarityRoll < 2 && level >= 12) {
++		if (item._itype == ItemType::Staff) {
++			SetRttMetadata(item, RttItemRarity::Unique, { 2, 8, 0, 0 });
++		} else if (item.isShield() && level >= 15) {
++			SetRttMetadata(item, RttItemRarity::Unique, { 5, 11, 0, 0 });
++		} else if (item._itype == ItemType::LightArmor && level >= 18) {
++			SetRttMetadata(item, RttItemRarity::Unique, { 5, 9, 0, 0 });
++		}
++	}
++	if (!HasRttItemMetadata(item) && rarityRoll >= 2 && rarityRoll < 6 && level >= 10 && (item.isShield() || item._itype == ItemType::LightArmor))
++		SetRttMetadata(item, RttItemRarity::Set, { RttTierCode(level, 4), RttTierCode(level, 7), RttTierCode(level, 10), 0 });
++	if (!HasRttItemMetadata(item) && rarityRoll >= 6 && rarityRoll < 21)
++		SetRttMetadata(item, RttItemRarity::Rare, BuildRttRareCodes(item, level, 0));
++
++	ApplyRttItemMetadata(item);
++}
++
++std::string RttAffixLine(const Item &item, uint8_t code)
++{
++	if (code >= 1 && code <= 3)
++		return FormatRuntime(_("Damage +{:d}%"), RttRoll(item, code, code == 1 ? 8 : code == 2 ? 13 : 21, code == 1 ? 12 : code == 2 ? 20 : 30));
++	if (code >= 4 && code <= 6)
++		return FormatRuntime(_("Armor +{:d}%"), RttRoll(item, code, code == 4 ? 8 : code == 5 ? 13 : 21, code == 4 ? 12 : code == 5 ? 20 : 30));
++	if (code >= 7 && code <= 9)
++		return FormatRuntime(_("Fire Resist +{:d}%"), RttRoll(item, code, code == 7 ? 6 : code == 8 ? 11 : 19, code == 7 ? 10 : code == 8 ? 18 : 28));
++	if (code >= 10 && code <= 12)
++		return FormatRuntime(_("Lightning Resist +{:d}%"), RttRoll(item, code, code == 10 ? 6 : code == 11 ? 11 : 19, code == 10 ? 10 : code == 11 ? 18 : 28));
++	return {};
++}
+ /** Map of item type .cel file names. */
+ const char *const ItemDropNames[] = {
+@@ -1787,6 +1981,21 @@ void PrintItemInfo(const Item &item)
+ {
+ 	PrintItemMisc(item);
++	if (HasRttItemMetadata(item) && item._iIdentified) {
++		switch (GetRttItemRarity(item)) {
++		case RttItemRarity::Rare: AddItemInfoBoxString(_("RTT Rare")); break;
++		case RttItemRarity::Set: AddItemInfoBoxString(_("Ossuary Regalia")); break;
++		case RttItemRarity::Unique: AddItemInfoBoxString(_("RTT Unique")); break;
++		case RttItemRarity::None: break;
++		}
++		for (size_t slot = 0; slot < RttAffixMasks.size(); ++slot) {
++			const std::string line = RttAffixLine(item, GetRttAffixCode(item, slot));
++			if (!line.empty())
++				AddItemInfoBoxString(line);
++		}
++		if (GetRttItemRarity(item) == RttItemRarity::Unique && item._itype == ItemType::Staff)
++			AddItemInfoBoxString(_("+1 to all spell levels"));
++	}
+ 	uint8_t str = item._iMinStr;
+@@ -2200,6 +2409,9 @@ std::string GetTranslatedItemNameMagical(const Item &item, bool hellfireItem, bool translate, std::optional<bool> forceNameLengthCheck)
+ {
++	if (HasRttItemMetadata(item))
++		return item._iIName;
++
+ 	std::string identifiedName;
+@@ -2464,6 +2676,7 @@ void CalcPlrItemVals(Player &player, bool loadgfx)
+ 	int minLightDam = 0;
+ 	int maxLightDam = 0;
++	int rttSetPieces = 0;
+ 
+ 	for (const Item &item : player.InvBody) {
+@@ -2471,6 +2684,8 @@ void CalcPlrItemVals(Player &player, bool loadgfx)
+ 		if (!item.isEmpty() && item._iStatFlag) {
++			if (GetRttItemRarity(item) == RttItemRarity::Set)
++				rttSetPieces++;
+ 
+ 			minDamage += item._iMinDam;
+@@ -2504,6 +2719,12 @@ void CalcPlrItemVals(Player &player, bool loadgfx)
+ 		}
+ 	}
++	if (rttSetPieces >= 2) {
++		fireRes += 10;
++		lightRes += 10;
++		splLvlAdd += 1;
++	}
+ 
+ 	CalcPlrDamage(player, minDamage, maxDamage);
+@@ -3263,7 +3484,7 @@ _item_indexes RndItemForMonsterLevel(int8_t monsterLevel)
+ 	});
+ }
+ 
+-void SetupAllItems(const Player &player, Item &item, _item_indexes idx, uint32_t iseed, int lvl, int uper, bool onlygood, bool pregen, int uidOffset /*= 0*/, bool forceNotUnique /*= false*/)
++void SetupAllItems(const Player &player, Item &item, _item_indexes idx, uint32_t iseed, int lvl, int uper, bool onlygood, bool pregen, int uidOffset /*= 0*/, bool forceNotUnique /*= false*/, bool generateRttMetadata /*= true*/)
+ {
+@@ -3300,6 +3521,9 @@ void SetupAllItems(const Player &player, Item &item, _item_indexes idx, uint32_t iseed, int lvl, int uper, bool onlygood, bool pregen, int uidOffset /*= 0*/, bool forceNotUnique /*= false*/)
+ 			GetUniqueItem(player, item, (_unique_items)iseed); // uid is stored in iseed for uniques
+ 		}
+ 	}
++
++	if (generateRttMetadata)
++		MaybeGenerateRttItemMetadata(item, lvl, pregen);
+ }
+@@ -3545,8 +3769,73 @@ void RecreateItem(const Player &player, Item &item, _item_indexes idx, uint16_t icreateinfo, uint32_t iseed, int ivalue, uint32_t dwBuff)
+ 	const bool pregen = (icreateinfo & CF_PREGEN) != 0;
+ 	auto uidOffset = static_cast<int>((item.dwBuff & CF_UIDOFFSET) >> 1);
+ 
+-	SetupAllItems(player, item, idx, iseed, level, uper, onlygood, pregen, uidOffset, forceNotUnique);
++	SetupAllItems(player, item, idx, iseed, level, uper, onlygood, pregen, uidOffset, forceNotUnique, false);
++	ApplyRttItemMetadata(item);
+ 	SetupItem(item);
+ 	gbIsHellfire = tmpIsHellfire;
+ }
++
++namespace {
++
++bool RebuildHeldRttRare(Player &player, uint32_t metadata)
++{
++	Item &held = player.HoldItem;
++	if (held.isEmpty() || GetRttItemRarity(held) != RttItemRarity::Rare)
++		return false;
++
++	const bool identified = held._iIdentified;
++	const uint32_t upstreamBuff = held.dwBuff & RttUpstreamBuffMask;
++	Item rebuilt {};
++	RecreateItem(player, rebuilt, held.IDidx, held._iCreateInfo, held._iSeed, held._ivalue, upstreamBuff);
++	rebuilt.dwBuff = upstreamBuff | metadata;
++	ApplyRttItemMetadata(rebuilt);
++	rebuilt._iIdentified = identified;
++	held = rebuilt;
++	CalcPlrInv(player, true);
++	return true;
++}
++
++} // namespace
++
++bool RttReforgeHeldRare(Player &player)
++{
++	if (!IsRttRuntime() || player.HoldItem.isEmpty() || GetRttItemRarity(player.HoldItem) != RttItemRarity::Rare)
++		return false;
++	Item prototype = player.HoldItem;
++	const int level = prototype._iCreateInfo & CF_LEVEL;
++	SetRttMetadata(prototype, RttItemRarity::Rare, BuildRttRareCodes(prototype, level, prototype.dwBuff));
++	const bool ok = RebuildHeldRttRare(player, prototype.dwBuff & ~RttUpstreamBuffMask);
++	if (ok)
++		EventPlrMsg(_("RTT: rare item reforged."), UiFlags::ColorWhite);
++	return ok;
++}
++
++bool RttRaiseHeldAffixTier(Player &player)
++{
++	if (!IsRttRuntime() || player.HoldItem.isEmpty() || GetRttItemRarity(player.HoldItem) != RttItemRarity::Rare)
++		return false;
++	Item prototype = player.HoldItem;
++	const int level = prototype._iCreateInfo & CF_LEVEL;
++	std::array<uint8_t, 4> codes {};
++	bool changed = false;
++	for (size_t slot = 0; slot < codes.size(); ++slot) {
++		codes[slot] = GetRttAffixCode(prototype, slot);
++		if (!changed && codes[slot] != 0 && ((codes[slot] - 1) % 3) != 2) {
++			const uint8_t next = codes[slot] + 1;
++			const int requiredLevel = ((next - 1) % 3) == 1 ? 10 : 20;
++			if (level >= requiredLevel) {
++				codes[slot] = next;
++				changed = true;
++			}
++		}
++	}
++	if (!changed)
++		return false;
++	SetRttMetadata(prototype, RttItemRarity::Rare, codes);
++	const bool ok = RebuildHeldRttRare(player, prototype.dwBuff & ~RttUpstreamBuffMask);
++	if (ok)
++		EventPlrMsg(_("RTT: affix tier raised."), UiFlags::ColorWhite);
++	return ok;
++}
++
++bool RttRerollHeldAffixSlot(Player &player)
++{
++	if (!IsRttRuntime() || player.HoldItem.isEmpty() || GetRttItemRarity(player.HoldItem) != RttItemRarity::Rare)
++		return false;
++	Item prototype = player.HoldItem;
++	const int level = prototype._iCreateInfo & CF_LEVEL;
++	auto codes = BuildRttRareCodes(prototype, level, prototype.dwBuff ^ 0x534C4F54U);
++	SetRttMetadata(prototype, RttItemRarity::Rare, codes);
++	const bool ok = RebuildHeldRttRare(player, prototype.dwBuff & ~RttUpstreamBuffMask);
++	if (ok)
++		EventPlrMsg(_("RTT: affix slot rerolled."), UiFlags::ColorWhite);
++	return ok;
++}
+ 
+ void RecreateEar(Item &item, uint16_t ic, uint32_t iseed, uint8_t bCursval, std::string_view heroName)
+--- a/Source/diablo.cpp
++++ b/Source/diablo.cpp
+@@ -2134,6 +2134,33 @@ void InitKeymapActions()
++	options.Keymapper.AddAction(
++	    "RttReforgeRare",
++	    N_("RTT Reforge held Rare"),
++	    N_("Reforge the RTT Rare currently held by the cursor."),
++	    SDLK_F5,
++	    [] { RttReforgeHeldRare(*MyPlayer); },
++	    nullptr,
++	    [] { return CanPlayerTakeAction() && invflag; });
++	options.Keymapper.AddAction(
++	    "RttRaiseAffixTier",
++	    N_("RTT Raise affix tier"),
++	    N_("Raise one eligible affix tier on the held RTT Rare."),
++	    SDLK_F6,
++	    [] { RttRaiseHeldAffixTier(*MyPlayer); },
++	    nullptr,
++	    [] { return CanPlayerTakeAction() && invflag; });
++	options.Keymapper.AddAction(
++	    "RttRerollAffixSlot",
++	    N_("RTT Reroll affix slot"),
++	    N_("Reroll the affix layout on the held RTT Rare."),
++	    SDLK_F7,
++	    [] { RttRerollHeldAffixSlot(*MyPlayer); },
++	    nullptr,
++	    [] { return CanPlayerTakeAction() && invflag; });
+ 	options.Keymapper.AddAction(
+ 	    "SortInv",
+@@ -2343,6 +2370,33 @@ void InitPadmapActions()
++	options.Padmapper.AddAction(
++	    "RttReforgeRare",
++	    N_("RTT Reforge held Rare"),
++	    N_("Reforge the RTT Rare currently held by the cursor."),
++	    ControllerButton_NONE,
++	    [] { RttReforgeHeldRare(*MyPlayer); },
++	    nullptr,
++	    []() { return CanPlayerTakeAction() && invflag && !InGameMenu(); });
++	options.Padmapper.AddAction(
++	    "RttRaiseAffixTier",
++	    N_("RTT Raise affix tier"),
++	    N_("Raise one eligible affix tier on the held RTT Rare."),
++	    ControllerButton_NONE,
++	    [] { RttRaiseHeldAffixTier(*MyPlayer); },
++	    nullptr,
++	    []() { return CanPlayerTakeAction() && invflag && !InGameMenu(); });
++	options.Padmapper.AddAction(
++	    "RttRerollAffixSlot",
++	    N_("RTT Reroll affix slot"),
++	    N_("Reroll the affix layout on the held RTT Rare."),
++	    ControllerButton_NONE,
++	    [] { RttRerollHeldAffixSlot(*MyPlayer); },
++	    nullptr,
++	    []() { return CanPlayerTakeAction() && invflag && !InGameMenu(); });
+ 	options.Padmapper.AddAction(
+ 	    "QuestLog",
