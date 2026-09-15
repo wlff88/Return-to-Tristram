@@ -35,6 +35,9 @@ jobs:
       - name: Validate Phase 3 Classic+ baseline
         run: python scripts/validate-classic-plus.py
 
+      - name: Validate Loot Filter 2.0
+        run: python scripts/validate-loot-filter.py
+
       - name: Generate runtime tables
         run: python scripts/export-mod-data.py --output out/ci-mod
 
@@ -64,8 +67,10 @@ jobs:
       - name: Validate RTT loot filter runtime files
         run: |
           test -f packaging/mod/lua/mods/rtt/qol/loot_filter.lua
+          test -f packaging/mod/lua/mods/rtt/qol/loot_filter_config.lua
           grep -q 'ShouldShowItemLabel' packaging/mod/lua/mods/rtt/modules/qol.lua
-          grep -q 'minNormalEquipmentValue = 200' packaging/mod/lua/mods/rtt/qol/loot_filter.lua
+          grep -q 'preset = "balanced"' packaging/mod/lua/mods/rtt/qol/loot_filter_config.lua
+          grep -q 'strict = {' packaging/mod/lua/mods/rtt/qol/loot_filter.lua
 
       - name: Validate runtime manifest
         run: |
