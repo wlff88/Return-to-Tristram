@@ -31,14 +31,14 @@ The complete RTT mask is `0xFFFFFFE0`; the upstream-reserved mask is `0x0000001F
 
 Compact affix code `0` means no affix. Codes `1..63` are append-only and never reused. The semantic stable ID remains authoritative; the compact code is only a serialization/network representation.
 
-Initial rarity codes:
+Rarity codes (matching `Data/itemization/affixes.json`'s `encoding.rarities` block, the shipped source of truth):
 
 - `0` — vanilla-compatible/generated item;
 - `1` — RTT Rare;
 - `2` — RTT Set;
-- `3` — reserved for a future migrated rarity layer.
+- `3` — RTT Unique.
 
-Vanilla Unique remains represented by DevilutionX's native unique machinery until the RTT unique bridge is enabled.
+The RTT unique bridge is implemented: three prototype uniques (Ashen Covenant, Boneward, Gravewhisper) carry rarity code `3` and round-trip through save/network via the same compact-metadata mechanism as Rares and Sets. Vanilla's own native unique machinery is unrelated and still used for non-RTT uniques (e.g. pre-Phase-4 saves, non-`rtt`-mod games); the two do not overlap.
 
 ## 3. No item morphing
 
@@ -120,16 +120,16 @@ The vertical slice identity is bone/shadow/sustain/risk-reward. A dedicated clas
 
 ## 9. Phase 4 implementation sequence
 
-1. **Foundation:** stable catalogs, compact metadata layout, Save Schema v2/migration, runtime registry, CI.  
-2. **Rare engine:** fresh-vs-recreate split, deterministic local roll, Rare metadata encode/apply, Rare UI.  
-3. **Unique/set bridge:** stable RTT unique/set metadata and bonuses.  
-4. **Crafting engine:** metadata-safe mutations through deterministic reconstruction.  
-5. **Progression engine:** skill points, active upgrades, passive/notable/mastery state.  
-6. **Necromancer playable slice:** class activation, first three actives and passive/mastery effects.  
-7. **Regression:** save migration, item round-trip, multiplayer reconstruction and campaign build-archetype tests.
+1. **Foundation** — DONE: stable catalogs, compact metadata layout, Save Schema v2/migration, runtime registry, CI.
+2. **Rare engine** — DONE: fresh-vs-recreate split, deterministic local roll, Rare metadata encode/apply, Rare UI; extended across the full base-item catalogue (`RttPhase4.RareRoundTripAcrossAllEquipmentTypes`), currently 15 affixes across 5 families (Gravebound/Stalwart/of Embers/of Storms/Marrow).
+3. **Unique/set bridge** — DONE for the initial 3 uniques + 1 set (2-piece bonus only); both are narrow prototypes, not a finished content set — see `docs/PROJECT_STATUS.md` priority list for what's still open.
+4. **Crafting engine** — DONE for 3 recipes (Reforge Rare, Raise Affix Tier, Reroll Affix Slot); no sockets, base-upgrade or unique-limited-upgrade yet.
+5. **Progression engine** — DONE for the Necromancer's 5-skill catalog (unlock/spend gating, one specialization); no broader passive tree.
+6. **Necromancer playable slice** — DONE at the engineering level (class activation, 5 actives/passives/mastery wired); **real-machine campaign playthrough not yet performed**.
+7. **Regression** — DONE: save migration, item round-trip, multiplayer reconstruction (`RttPhase4.NetworkChoiceAppliesToSenderNotSelf` and the item-metadata host/client tests) are CI-green; campaign build-archetype tests remain manual (stage 6's real-machine gap).
 
 ## 10. Exit criterion
 
-Phase 4 engineering is complete when at least one Necromancer build can use RTT Rare/Unique/Set itemisation, skill progression and crafting through the original campaign path, and automated contracts prove that stable generated items and progression survive v1→v2 migration and repeated save/recreate cycles without identity drift.
+**Engineering criterion met**: automated contracts prove stable generated items and progression survive v1→v2 migration and repeated save/recreate cycles without identity drift (see `scripts/validate-phase4-complete.py`'s required `RttPhase4.*` test list).
 
-Real-machine gameplay acceptance may remain a separate gate, as with Phase 3, but CI/build/save/network contracts must be green before Phase 4 is called engineering-complete.
+**Runtime criterion not yet met**: nobody has played a Necromancer build using RTT Rare/Unique/Set itemisation, skill progression and crafting through the original campaign path on a real machine. Real-machine gameplay acceptance remains a separate gate, as with Phase 3.
