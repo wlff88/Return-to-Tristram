@@ -64,8 +64,10 @@ jobs:
       - name: Install CMake
         uses: lukka/get-cmake@latest
 
-      - name: Install sccache
-        uses: mozilla-actions/sccache-action@v0.0.6
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: windows-msvc-ninja
 
       - name: Cache pinned vcpkg
         uses: actions/cache@v4
@@ -173,10 +175,8 @@ jobs:
         with:
           arch: x64
 
-      - name: Build pinned DevilutionX with Visual Studio MSVC
+      - name: Build pinned DevilutionX with Ninja + MSVC
         shell: pwsh
-        env:
-          SCCACHE_GHA_ENABLED: "true"
         run: |
           $lastCode = 1
           $engine = 'Engine/devilutionx'
@@ -190,7 +190,7 @@ jobs:
               git -C $engine clean -fd
               if ($LASTEXITCODE -ne 0) { throw "Engine clean failed with exit code $LASTEXITCODE" }
 
-              & ./scripts/build-windows.ps1 -Configuration Release -VcpkgRoot $env:VCPKG_ROOT -Sol2Source $env:RTT_SOL2_SOURCE
+              & ./scripts/build-windows.ps1 -Configuration Release -VcpkgRoot $env:VCPKG_ROOT -Sol2Source $env:RTT_SOL2_SOURCE -Ninja
               $lastCode = $LASTEXITCODE
             }
             catch {
@@ -210,9 +210,9 @@ jobs:
           }
           exit $lastCode
 
-      - name: sccache stats
+      - name: ccache stats
         shell: pwsh
-        run: sccache --show-stats
+        run: ccache -s
 
       - name: Verify executable
         shell: pwsh
@@ -228,18 +228,31 @@ jobs:
       - name: Phase 4 engine contracts
         shell: pwsh
         run: |
-          $test = Resolve-Path 'build/devilutionx-windows-x64/Release/rtt_phase4_test.exe'
-          # DevilutionX resolves unpacked assets relative to the executable's own
-          # directory (SDL_GetBasePath() + "assets/"), but CMake's copy_files()
-          # always stages them at the base build dir, not inside the per-config
-          # Release/Debug subdirectory MSVC uses. Mirror them alongside the test
-          # binary so it can find txtdata/items/itemdat.tsv etc.
-          Copy-Item -Recurse -Force 'build/devilutionx-windows-x64/assets' 'build/devilutionx-windows-x64/Release/assets'
-          Push-Location build/devilutionx-windows-x64
+          # Ninja is single-config: the test binary and assets land directly in
+          # the build dir, with no per-config Release/Debug subdirectory the
+          # way the Visual Studio generator lays them out.
+          $testCandidates = @(
+            'build/devilutionx-windows-x64/Release/rtt_phase4_test.exe',
+            'build/devilutionx-windows-x64/rtt_phase4_test.exe'
+          )
+          $test = $testCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $test) { throw "Missing rtt_phase4_test.exe in expected build output." }
+          $test = Resolve-Path $test
+          $testDir = Split-Path $test -Parent
+          # DevilutionX resolves unpacked assets relative to the executable's
+          # own directory (SDL_GetBasePath() + "assets/"), but CMake's
+          # copy_files() always stages them at the base build dir. Mirror them
+          # alongside the test binary when that isn't already the same place.
+          $assetsSource = Resolve-Path 'build/devilutionx-windows-x64/assets'
+          $assetsDest = Join-Path $testDir 'assets'
+          if ($assetsSource.Path -ne $assetsDest) {
+            Copy-Item -Recurse -Force $assetsSource $assetsDest
+          }
+          Push-Location $testDir
           & $test --gtest_output=xml:phase4-results.xml
           if ($LASTEXITCODE -ne 0) { throw 'Phase 4 engine contracts failed' }
           Pop-Location
-          python scripts/validate-phase4-complete.py --results build/devilutionx-windows-x64/phase4-results.xml
+          python scripts/validate-phase4-complete.py --results (Join-Path $testDir 'phase4-results.xml')
 
       - name: Package RTT Windows x64 test build
         shell: pwsh

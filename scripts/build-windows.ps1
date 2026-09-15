@@ -2,7 +2,12 @@ param(
     [ValidateSet('Debug','Release')]
     [string]$Configuration = 'Release',
     [string]$VcpkgRoot = $env:VCPKG_ROOT,
-    [string]$Sol2Source = $env:RTT_SOL2_SOURCE
+    [string]$Sol2Source = $env:RTT_SOL2_SOURCE,
+    # Opt-in only: switches the generator from the default Visual Studio
+    # (MSBuild) project to Ninja. A plain developer workstation keeps the
+    # existing VS-generator behavior (no vcvarsall/Developer Prompt required)
+    # unless it explicitly asks for Ninja.
+    [switch]$Ninja
 )
 
 $ErrorActionPreference = 'Stop'
@@ -24,7 +29,6 @@ if ($LASTEXITCODE -ne 0) {
 $ConfigureArgs = @(
     '-S', $SourceDir,
     '-B', $BuildDir,
-    '-A', 'x64',
     '-DBUILD_TESTING=ON',
     # DevilutionX's own CMakeLists.txt force-disables BUILD_TESTING for a
     # non-Debug MSVC configuration when LTO is on (workaround for a MSVC+CMake
@@ -34,6 +38,16 @@ $ConfigureArgs = @(
     # BUILD_TESTING actually takes effect.
     '-DDISABLE_LTO=ON'
 )
+
+if ($Ninja) {
+    # Ninja is single-config: the build type has to be fixed at configure
+    # time instead of chosen later via `cmake --build --config`.
+    $ConfigureArgs += '-G', 'Ninja'
+    $ConfigureArgs += "-DCMAKE_BUILD_TYPE=$Configuration"
+}
+else {
+    $ConfigureArgs += '-A', 'x64'
+}
 
 if ($VcpkgRoot) {
     $Toolchain = Join-Path $VcpkgRoot 'scripts/buildsystems/vcpkg.cmake'
@@ -56,31 +70,13 @@ if ($Sol2Source) {
     Write-Host "Using prefetched sol2: $ResolvedSol2"
 }
 
-# Opt-in, not required: only wire sccache in when it is on PATH (CI installs
-# it explicitly) so a developer workstation without it builds exactly as
-# before. CMAKE_<LANG>_COMPILER_LAUNCHER is a no-op here -- CMake only
-# implements that hook for the Makefile/Ninja generators, not the Visual
-# Studio (MSBuild) generator this script uses (-A x64 with no -G). Instead,
-# stand a renamed copy of sccache in for MSBuild's own ClCompile tool: sccache
-# recognizes it was invoked as "cl.exe" and resolves the real compiler itself
-# from PATH, which the CI job's msvc-dev-cmd step puts there.
-$Sccache = Get-Command sccache -ErrorAction SilentlyContinue
-if ($Sccache) {
-    $WrapperDir = Join-Path ([System.IO.Path]::GetTempPath()) 'rtt-sccache-cl'
-    if (Test-Path $WrapperDir) {
-        Remove-Item -Recurse -Force $WrapperDir
-    }
-    New-Item -ItemType Directory -Force -Path $WrapperDir | Out-Null
-    Copy-Item $Sccache.Source (Join-Path $WrapperDir 'cl.exe') -Force
-
-    $VsGlobals = "CLToolExe=cl.exe;CLToolPath=$WrapperDir;TrackFileAccess=false;UseMultiToolTask=true"
-    $ConfigureArgs += "-DCMAKE_VS_GLOBALS=$VsGlobals"
-    Write-Host "sccache found: enabling MSBuild compiler cache via $WrapperDir"
-}
-else {
-    Write-Host "sccache not found on PATH: building without a compiler cache"
-}
-
+# No compiler-cache wiring needed here: DevilutionX's own CMakeLists.txt
+# already does `find_program(CCACHE_PROGRAM ccache)` and sets
+# CMAKE_C/CXX_COMPILER_LAUNCHER itself when ccache is on PATH. That hook is
+# only implemented by CMake for the Makefile/Ninja generators (not Visual
+# Studio/MSBuild), which is exactly why -Ninja exists above -- so a CI job
+# that installs ccache and passes -Ninja gets a working compiler cache for
+# free, matching upstream DevilutionX's own Windows_MSVC_x64.yml.
 cmake @ConfigureArgs
 if ($LASTEXITCODE -ne 0) {
     throw "CMake configure failed with exit code $LASTEXITCODE"
