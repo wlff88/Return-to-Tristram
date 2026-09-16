@@ -169,6 +169,13 @@
       "save_safe": true,
       "network_safe": true,
       "rng_safe": true
+    },
+    "0025-rtt-crafting-tier1-3.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "Extend Horadric Cube crafting to a usable Tier I-III: adds recipes 5 (Enchant Normal Item), 6 (Reforge Magic Item), 7 (Reroll Affix Value) at Horadric Knowledge Tier I, and 8 (Preserve Affix) at Tier II, alongside the existing Reforge Rare/Reroll Affix Slot (Tier II) and Raise Affix Tier (Tier III). All recipes share the single deterministic RttPrepareCraft/RecreateItem mutation engine from patch 0010 -- Tier I recipes reuse SetupAllItems() with a re-derived seed instead of a bespoke generator, and recipe 7 uses bounded rejection sampling against the original affix type so only the roll value changes. Adds a craft-then-pack/unpack-then-compare round-trip test for all 4 new recipes.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
     }
   }
 }
