@@ -1,0 +1,321 @@
+diff --git a/Source/control/control.hpp b/Source/control/control.hpp
+--- a/Source/control/control.hpp
++++ b/Source/control/control.hpp
+@@ -48,6 +48,8 @@
+ 
+ extern StringOrView InfoString;
+ extern StringOrView FloatingInfoString;
++/** Second D2-style floating tooltip, drawn beside FloatingInfoString, used to show the currently equipped item next to the hovered one. */
++extern StringOrView RttComparisonInfoString;
+ 
+ extern Rectangle MainPanelButtonRect[8];
+ extern DVL_API_FOR_TEST Rectangle CharPanelButtonRect[4];
+@@ -90,6 +92,12 @@
+ 
+ void AddInfoBoxString(std::string_view str, bool floatingBox = false);
+ void AddInfoBoxString(std::string &&str, bool floatingBox = false);
++/**
++ * @brief While set, AddInfoBoxString appends to *target instead of InfoString/FloatingInfoString.
++ * Used to populate RttComparisonInfoString by re-running the normal item-description pipeline
++ * (PrintItemDetails/PrintItemInfo) against a different item without touching the primary tooltip.
++ */
++void RttSetInfoBoxRedirect(StringOrView *target);
+ void DrawPanelBox(const Surface &out, SDL_Rect srcRect, Point targetPosition);
+ Point GetPanelPosition(UiPanels panel, Point offset = { 0, 0 });
+ 
+diff --git a/Source/control/control_infobox.cpp b/Source/control/control_infobox.cpp
+--- a/Source/control/control_infobox.cpp
++++ b/Source/control/control_infobox.cpp
+@@ -22,9 +22,12 @@
+ 
+ StringOrView InfoString;
+ StringOrView FloatingInfoString;
++StringOrView RttComparisonInfoString;
+ 
+ namespace {
+ 
++StringOrView *RttInfoBoxRedirectTarget = nullptr;
++
+ void PrintInfo(const Surface &out)
+ {
+ 	if (ChatFlag)
+@@ -74,6 +77,13 @@
+ 
+ 	const Player &player = *InspectPlayer;
+ 
++	// 0) Ground item (Rect position) - no fixed slot to anchor to, so track the cursor.
++	if (pcursitem != -1) {
++		Point pos = MousePosition;
++		pos.x -= maxW / 2;
++		return { pos, { maxW, totalH } };
++	}
++
+ 	// 1) Equipment (Rect position)
+ 	if (pcursinvitem >= INVITEM_HEAD && pcursinvitem < INVITEM_INV_FIRST) {
+ 		const int slot = pcursinvitem - INVITEM_HEAD;
+@@ -203,8 +213,34 @@
+ 	return { { 0, 0 }, { 0, 0 } };
+ }
+ 
++// Computes the size of RttComparisonInfoString and places it beside primaryBox (D2-style: the hovered
++// item's tooltip and the currently equipped item's tooltip are two independent, side-by-side boxes).
++Rectangle RttGetComparisonInfoRect(const Rectangle &primaryBox, int lineHeight, int textSpacing)
++{
++	const std::string txt = std::string(RttComparisonInfoString);
++	auto lines = SplitByChar(txt, '\n');
++	const GameFontTables font = GameFont12;
++	int maxW = 0;
++	for (const auto &line : lines) {
++		const int w = GetLineWidth(line, font, textSpacing, nullptr);
++		maxW = std::max(maxW, w);
++	}
++	const auto lineCount = 1 + static_cast<int>(c_count(RttComparisonInfoString.str(), '\n'));
++	const int totalH = lineCount * lineHeight;
++
++	constexpr int gap = 10;
++	int x = primaryBox.position.x + primaryBox.size.width + gap;
++	if (x + maxW + gap > GetScreenWidth())
++		x = primaryBox.position.x - gap - maxW;
++
++	return { { x, primaryBox.position.y }, { maxW, totalH } };
++}
++
+ int GetHoverSpriteHeight()
+ {
++	if (pcursitem != -1) {
++		return 0;
++	}
+ 	if (pcursinvitem >= INVITEM_HEAD && pcursinvitem < INVITEM_INV_FIRST) {
+ 		auto &it = (*InspectPlayer).InvBody[pcursinvitem - INVITEM_HEAD];
+ 		return GetInvItemSize(it._iCurs + CURSOR_FIRSTITEM).height + 1;
+@@ -281,12 +317,42 @@
+ 	        .spacing = textSpacing,
+ 	        .lineHeight = lineHeight,
+ 	    });
++
++	// D2-style comparison: draw the currently-equipped item's own, independent tooltip
++	// box beside the hovered item's box. Never merged into the same box/string.
++	if (!RttComparisonInfoString.empty()) {
++		Rectangle comparisonBox = RttGetComparisonInfoRect(floatingInfoBox, lineHeight, textSpacing);
++		comparisonBox.position.x = std::clamp(comparisonBox.position.x, hPadding, GetScreenWidth() - (comparisonBox.size.width + hPadding));
++
++		for (int i = 0; i < 3; i++)
++			DrawHalfTransparentRectTo(out, comparisonBox.position.x - hPadding, comparisonBox.position.y - vPadding, comparisonBox.size.width + (hPadding * 2), comparisonBox.size.height + (vPadding * 2));
++		DrawHalfTransparentVerticalLine(out, { comparisonBox.position.x - hPadding - 1, comparisonBox.position.y - vPadding - 1 }, comparisonBox.size.height + (vPadding * 2) + 2, PAL16_GRAY + 10);
++		DrawHalfTransparentVerticalLine(out, { comparisonBox.position.x + hPadding + comparisonBox.size.width, comparisonBox.position.y - vPadding - 1 }, comparisonBox.size.height + (vPadding * 2) + 2, PAL16_GRAY + 10);
++		DrawHalfTransparentHorizontalLine(out, { comparisonBox.position.x - hPadding, comparisonBox.position.y - vPadding - 1 }, comparisonBox.size.width + (hPadding * 2), PAL16_GRAY + 10);
++		DrawHalfTransparentHorizontalLine(out, { comparisonBox.position.x - hPadding, comparisonBox.position.y + vPadding + comparisonBox.size.height }, comparisonBox.size.width + (hPadding * 2), PAL16_GRAY + 10);
++
++		DrawString(out, RttComparisonInfoString, comparisonBox,
++		    {
++		        .flags = UiFlags::ColorWhite | UiFlags::AlignCenter | UiFlags::VerticalCenter,
++		        .spacing = textSpacing,
++		        .lineHeight = lineHeight,
++		    });
++	}
+ }
+ 
+ } // namespace
+ 
+ void AddInfoBoxString(std::string_view str, bool floatingBox /*= false*/)
+ {
++	if (RttInfoBoxRedirectTarget != nullptr) {
++		StringOrView &infoString = *RttInfoBoxRedirectTarget;
++		if (infoString.empty())
++			infoString = str;
++		else
++			infoString = StrCat(infoString, "\n", str);
++		return;
++	}
++
+ 	StringOrView &infoString = floatingBox ? FloatingInfoString : InfoString;
+ 
+ 	if (infoString.empty())
+@@ -297,6 +363,15 @@
+ 
+ void AddInfoBoxString(std::string &&str, bool floatingBox /*= false*/)
+ {
++	if (RttInfoBoxRedirectTarget != nullptr) {
++		StringOrView &infoString = *RttInfoBoxRedirectTarget;
++		if (infoString.empty())
++			infoString = std::move(str);
++		else
++			infoString = StrCat(infoString, "\n", str);
++		return;
++	}
++
+ 	StringOrView &infoString = floatingBox ? FloatingInfoString : InfoString;
+ 
+ 	if (infoString.empty())
+@@ -305,11 +380,17 @@
+ 		infoString = StrCat(infoString, "\n", str);
+ }
+ 
++void RttSetInfoBoxRedirect(StringOrView *target)
++{
++	RttInfoBoxRedirectTarget = target;
++}
++
+ void CheckPanelInfo()
+ {
+ 	MainPanelFlag = false;
+ 	InfoString = StringOrView {};
+ 	FloatingInfoString = StringOrView {};
++	RttComparisonInfoString = StringOrView {};
+ 
+ 	const int totalButtons = IsChatAvailable() ? TotalMpMainPanelButtons : TotalSpMainPanelButtons;
+ 
+@@ -449,8 +530,9 @@
+ 
+ void DrawFloatingInfoBox(const Surface &out)
+ {
+-	if (pcursinvitem == -1 && pcursstashitem == StashStruct::EmptyCell && pcursstoreitem == -1 && pcursstorebtn == -1) {
++	if (pcursinvitem == -1 && pcursstashitem == StashStruct::EmptyCell && pcursstoreitem == -1 && pcursstorebtn == -1 && pcursitem == -1) {
+ 		FloatingInfoString = StringOrView {};
++		RttComparisonInfoString = StringOrView {};
+ 		InfoColor = UiFlags::ColorWhite;
+ 	}
+ 
+diff --git a/Source/items.cpp b/Source/items.cpp
+--- a/Source/items.cpp
++++ b/Source/items.cpp
+@@ -4245,6 +4245,13 @@
+ 	if (item._itype != ItemType::Gold) {
+ 		InfoString = item.getName();
+ 		InfoColor = item.getTextColor();
++		FloatingInfoString = item.getName();
++		if (item._iIdentified) {
++			PrintItemDetails(item);
++			RttPopulateComparisonTooltip(item);
++		} else {
++			PrintItemDur(item);
++		}
+ 	} else {
+ 		const int nGold = item._ivalue;
+ 		InfoString = FormatRuntime(ngettext("{:s} gold piece", "{:s} gold pieces", nGold), FormatInteger(nGold));
+@@ -4580,39 +4587,34 @@
+ 	return &equipped;
+ }
+ 
+-void PrintRttItemComparison(const Item &item)
++} // namespace
++
++void RttPopulateComparisonTooltip(const Item &item)
+ {
++	RttComparisonInfoString = StringOrView {};
++
+ 	const Item *equipped = GetRttComparisonItem(item);
+ 	if (equipped == nullptr)
+ 		return;
+ 
+-	AddItemInfoBoxString(StrCat(_("Equipped: "), equipped->getName()));
+-
+-	if (item.isWeapon()) {
+-		AddItemInfoBoxString(FormatRuntime(_("vs equipped Damage: {:+d} to {:+d}"),
+-		    item._iMinDam - equipped->_iMinDam, item._iMaxDam - equipped->_iMaxDam));
+-	} else if (item.isArmor()) {
+-		AddItemInfoBoxString(FormatRuntime(_("vs equipped Armor: {:+d}"), item._iAC - equipped->_iAC));
+-	}
+-
+-	const int str = item._iPLStr - equipped->_iPLStr;
+-	const int mag = item._iPLMag - equipped->_iPLMag;
+-	const int dex = item._iPLDex - equipped->_iPLDex;
+-	const int vit = item._iPLVit - equipped->_iPLVit;
+-	if (str != 0 || mag != 0 || dex != 0 || vit != 0) {
+-		AddItemInfoBoxString(FormatRuntime(_("vs equipped STR {:+d} MAG {:+d} DEX {:+d} VIT {:+d}"), str, mag, dex, vit));
+-	}
+-
+-	const int fire = item._iPLFR - equipped->_iPLFR;
+-	const int lightning = item._iPLLR - equipped->_iPLLR;
+-	const int magic = item._iPLMR - equipped->_iPLMR;
+-	if (fire != 0 || lightning != 0 || magic != 0) {
+-		AddItemInfoBoxString(FormatRuntime(_("vs equipped Resist: Fire {:+d} Lightning {:+d} Magic {:+d}"), fire, lightning, magic));
+-	}
++	// D2-style: the equipped item gets its own complete, independent tooltip box,
++	// built by re-running the normal item-description pipeline against it - never
++	// mixed into the hovered item's own box.
++	const bool savedShowUniqueItemInfoBox = ShowUniqueItemInfoBox;
++	const Item savedCurrUItem = curruitem;
++
++	RttComparisonInfoString = equipped->getName();
++	RttSetInfoBoxRedirect(&RttComparisonInfoString);
++	PrintItemDetails(*equipped);
++	RttSetInfoBoxRedirect(nullptr);
++
++	// PrintItemDetails() may flip the shared unique-item-popup state for `equipped`;
++	// that popup belongs to whatever item is actually under the cursor, not the
++	// comparison target, so restore it.
++	ShowUniqueItemInfoBox = savedShowUniqueItemInfoBox;
++	curruitem = savedCurrUItem;
+ }
+ 
+-} // namespace
+-
+ void PrintItemDetails(const Item &item)
+ {
+ 	if (HeadlessMode)
+@@ -4652,7 +4654,6 @@
+ 		curruitem = item;
+ 	}
+ 	PrintItemInfo(item);
+-	PrintRttItemComparison(item);
+ }
+ 
+ void PrintItemDur(const Item &item)
+diff --git a/Source/items.h b/Source/items.h
+--- a/Source/items.h
++++ b/Source/items.h
+@@ -559,6 +559,12 @@
+ void DrawUniqueInfo(const Surface &out);
+ void PrintItemDetails(const Item &item);
+ void PrintItemDur(const Item &item);
++/**
++ * @brief D2-style comparison: populates RttComparisonInfoString with a full, independent
++ * tooltip for the item currently equipped in item's slot (if any), drawn beside the
++ * hovered item's own tooltip box. Call after PrintItemDetails(item) at any hover site.
++ */
++void RttPopulateComparisonTooltip(const Item &item);
+ void UseItem(Player &player, item_misc_id Mid, SpellID spellID, int spellFrom);
+ bool UseItemOpensHive(const Item &item, Point position);
+ bool UseItemOpensGrave(const Item &item, Point position);
+diff --git a/Source/inv.cpp b/Source/inv.cpp
+--- a/Source/inv.cpp
++++ b/Source/inv.cpp
+@@ -2022,6 +2022,7 @@
+ 		FloatingInfoString = pi->getName();
+ 		if (pi->_iIdentified) {
+ 			PrintItemDetails(*pi);
++			RttPopulateComparisonTooltip(*pi);
+ 		} else {
+ 			PrintItemDur(*pi);
+ 		}
+@@ -2040,6 +2041,7 @@
+ 		FloatingInfoString = pi->getName();
+ 		if (pi->_iIdentified) {
+ 			PrintItemDetails(*pi);
++			RttPopulateComparisonTooltip(*pi);
+ 		} else {
+ 			PrintItemDur(*pi);
+ 		}
+diff --git a/Source/qol/stash.cpp b/Source/qol/stash.cpp
+--- a/Source/qol/stash.cpp
++++ b/Source/qol/stash.cpp
+@@ -454,6 +454,7 @@
+ 	FloatingInfoString = item.getName();
+ 	if (item._iIdentified) {
+ 		PrintItemDetails(item);
++		RttPopulateComparisonTooltip(item);
+ 	} else {
+ 		PrintItemDur(item);
+ 	}
+diff --git a/Source/qol/visual_store.cpp b/Source/qol/visual_store.cpp
+--- a/Source/qol/visual_store.cpp
++++ b/Source/qol/visual_store.cpp
+@@ -612,6 +612,7 @@
+ 
+ 				if (item._iIdentified) {
+ 					PrintItemDetails(item);
++					RttPopulateComparisonTooltip(item);
+ 				} else {
+ 					PrintItemDur(item);
+ 				}
