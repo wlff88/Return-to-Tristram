@@ -1,0 +1,244 @@
+diff --git a/Source/player.h b/Source/player.h
+--- a/Source/player.h
++++ b/Source/player.h
+@@ -223,6 +223,8 @@
+ 	Item InvBody[NUM_INVLOC];
+ 	Item RttAlternateWeaponSet[2];
+ 	uint8_t RttActiveWeaponSet = 0;
++	/** Highest purchased Horadric Knowledge crafting tier (0 = none, 1-5 = Level I-V). */
++	uint8_t RttHoradricKnowledgeTier = 0;
+ 	Item InvList[InventoryGridCells];
+ 	Item SpdList[MaxBeltItems];
+ 	Item HoldItem;
+diff --git a/Source/loadsave.h b/Source/loadsave.h
+--- a/Source/loadsave.h
++++ b/Source/loadsave.h
+@@ -26,6 +26,7 @@
+ void LoadHotkeys();
+ void LoadHeroItems(Player &player);
+ void LoadRttWeaponSet(uint32_t saveNum, Player &player);
++void LoadRttCraftingState(uint32_t saveNum, Player &player);
+ /**
+  * @brief Remove invalid inventory items from the inventory grid
+  * @param player The player to remove invalid items from
+@@ -40,6 +41,7 @@
+ void SaveHotkeys(SaveWriter &saveWriter, const Player &player);
+ void SaveHeroItems(SaveWriter &saveWriter, Player &player);
+ void SaveRttWeaponSet(SaveWriter &saveWriter, const Player &player);
++void SaveRttCraftingState(SaveWriter &saveWriter, const Player &player);
+ void SaveGameData(SaveWriter &saveWriter);
+ void SaveGame();
+ void SaveLevel(SaveWriter &saveWriter);
+diff --git a/Source/loadsave.cpp b/Source/loadsave.cpp
+--- a/Source/loadsave.cpp
++++ b/Source/loadsave.cpp
+@@ -2450,6 +2450,39 @@
+ 	}
+ }
+ 
++namespace {
++
++constexpr uint8_t RttCraftingStateVersion = 1;
++constexpr char RttCraftingStateFileName[] = "rtt_crafting_state";
++
++} // namespace
++
++void LoadRttCraftingState(uint32_t saveNum, Player &player)
++{
++	player.RttHoradricKnowledgeTier = 0;
++
++	LoadHelper file(OpenSaveArchive(saveNum), RttCraftingStateFileName);
++	if (!file.IsValid())
++		return;
++
++	const uint8_t version = file.NextLE<uint8_t>();
++	if (version != RttCraftingStateVersion)
++		return;
++
++	const uint8_t tier = file.NextLE<uint8_t>();
++	if (tier <= 5)
++		player.RttHoradricKnowledgeTier = tier;
++}
++
++void SaveRttCraftingState(SaveWriter &saveWriter, const Player &player)
++{
++	constexpr size_t FileSize = 2 * sizeof(uint8_t);
++	SaveHelper file(saveWriter, RttCraftingStateFileName, FileSize);
++
++	file.WriteLE<uint8_t>(RttCraftingStateVersion);
++	file.WriteLE<uint8_t>(player.RttHoradricKnowledgeTier);
++}
++
+ void LoadHeroItems(Player &player)
+ {
+ 	LoadHelper file(OpenSaveArchive(gSaveNumber), "heroitems");
+diff --git a/Source/pfile.cpp b/Source/pfile.cpp
+--- a/Source/pfile.cpp
++++ b/Source/pfile.cpp
+@@ -538,8 +538,10 @@
+ 	if (!gbVanilla) {
+ 		SaveHotkeys(saveWriter, myPlayer);
+ 		SaveHeroItems(saveWriter, myPlayer);
+-		if (GetActiveModSaveExtension() == "rtt")
++		if (GetActiveModSaveExtension() == "rtt") {
+ 			SaveRttWeaponSet(saveWriter, myPlayer);
++			SaveRttCraftingState(saveWriter, myPlayer);
++		}
+ 	}
+ }
+ 
+@@ -769,8 +771,10 @@
+ 	if (!gbVanilla) {
+ 		SaveHotkeys(saveWriter, player);
+ 		SaveHeroItems(saveWriter, player);
+-		if (GetActiveModSaveExtension() == "rtt")
++		if (GetActiveModSaveExtension() == "rtt") {
+ 			SaveRttWeaponSet(saveWriter, player);
++			SaveRttCraftingState(saveWriter, player);
++		}
+ 	}
+ 
+ 	return true;
+@@ -803,8 +807,10 @@
+ 
+ 	UnPackPlayer(pkplr, player);
+ 	LoadHeroItems(player);
+-	if (GetActiveModSaveExtension() == "rtt")
++	if (GetActiveModSaveExtension() == "rtt") {
+ 		LoadRttWeaponSet(saveNum, player);
++		LoadRttCraftingState(saveNum, player);
++	}
+ 	RemoveAllInvalidItems(player);
+ 	CalcPlrInv(player, false);
+ }
+diff --git a/Source/stores.cpp b/Source/stores.cpp
+--- a/Source/stores.cpp
++++ b/Source/stores.cpp
+@@ -6,6 +6,7 @@
+ #include "stores.h"
+ 
+ #include <algorithm>
++#include <array>
+ #include <cstdint>
+ #include <optional>
+ #include <string>
+@@ -31,6 +32,7 @@
+ #include "panels/info_box.hpp"
+ #include "panels/quest_log.hpp"
+ #include "panels/waypoint_panel.hpp"
++#include "plrmsg.h"
+ #include "qol/stash.h"
+ #include "qol/visual_store.h"
+ #include "tables/townerdat.hpp"
+@@ -144,10 +146,90 @@
+ 	RttNativeTownerOptionsRegistered = false;
+ }
+ 
+-// RTT: Griswold's Anvil gets a "Salvage Item" option alongside the existing native
+-// options (Sell/Repair/Recharge/Oil), reusing the same mod-facing dialog-injection hook
+-// so it survives a Lua reload (ClearTownerDialogOptions() resets the guard above,
+-// and RttEnsureNativeTownerDialogOptions() is called again the next time any store opens).
++// RTT: identifies every unidentified item in the player's inventory (equipped + backpack)
++// in one action, charging the sum of each item's individual identify cost. Mirrors
++// StorytellerIdentifyItem's single-item logic, just batched.
++void RttIdentifyAllItems()
++{
++	Player &myPlayer = *MyPlayer;
++
++	int totalCost = 0;
++	for (Item &item : myPlayer.InvBody)
++		if (!item.isEmpty() && !item._iIdentified)
++			totalCost += item._iIvalue;
++	for (int i = 0; i < myPlayer._pNumInv; i++) {
++		Item &item = myPlayer.InvList[i];
++		if (!item.isEmpty() && !item._iIdentified)
++			totalCost += item._iIvalue;
++	}
++
++	if (totalCost == 0) {
++		EventPlrMsg(_("Nothing to identify."), UiFlags::ColorWhite);
++		return;
++	}
++
++	if (!PlayerCanAfford(totalCost)) {
++		StartStore(TalkID::NoMoney);
++		return;
++	}
++
++	for (Item &item : myPlayer.InvBody)
++		if (!item.isEmpty())
++			item._iIdentified = true;
++	for (int i = 0; i < myPlayer._pNumInv; i++)
++		myPlayer.InvList[i]._iIdentified = true;
++
++	TakePlrsMoney(totalCost);
++	CalcPlrInv(myPlayer, true);
++	EventPlrMsg(FormatRuntime(_("Identified everything for {:d} Gold."), totalCost), UiFlags::ColorWhitegold);
++}
++
++// RTT: Horadric Knowledge - Cain's gold-sink crafting-tier progression. Placeholder
++// costs/level gate per the Item UX/Salvage/Crafting design; must be purchased in order.
++// Level V additionally requires a character level for now (quest-completion gate
++// deferred until an actual quest system exists).
++constexpr std::array<int, 5> RttHoradricKnowledgeCosts { 5000, 20000, 60000, 150000, 400000 };
++constexpr std::array<const char *, 5> RttHoradricKnowledgeTierNames { "I", "II", "III", "IV", "V" };
++constexpr int RttHoradricKnowledgeLevelVCharLevel = 30;
++
++std::string RttHoradricKnowledgeOptionLabel()
++{
++	const Player &myPlayer = *MyPlayer;
++	const int nextTier = myPlayer.RttHoradricKnowledgeTier + 1;
++	if (nextTier > 5)
++		return "";
++	if (nextTier == 5 && myPlayer.getCharacterLevel() < RttHoradricKnowledgeLevelVCharLevel) {
++		return StrCat(_("Horadric Knowledge V (Requires Character Level "), RttHoradricKnowledgeLevelVCharLevel, ")");
++	}
++	return StrCat(_("Learn Horadric Knowledge "), RttHoradricKnowledgeTierNames[nextTier - 1],
++	    " (", RttHoradricKnowledgeCosts[nextTier - 1], " Gold)");
++}
++
++void RttPurchaseHoradricKnowledge()
++{
++	Player &myPlayer = *MyPlayer;
++	const int nextTier = myPlayer.RttHoradricKnowledgeTier + 1;
++	if (nextTier > 5)
++		return;
++	if (nextTier == 5 && myPlayer.getCharacterLevel() < RttHoradricKnowledgeLevelVCharLevel)
++		return;
++
++	const int cost = RttHoradricKnowledgeCosts[nextTier - 1];
++	if (!PlayerCanAfford(cost)) {
++		StartStore(TalkID::NoMoney);
++		return;
++	}
++
++	TakePlrsMoney(cost);
++	myPlayer.RttHoradricKnowledgeTier = static_cast<uint8_t>(nextTier);
++	EventPlrMsg(FormatRuntime(_("Learned Horadric Knowledge {:s}."), RttHoradricKnowledgeTierNames[nextTier - 1]), UiFlags::ColorWhitegold);
++}
++
++// RTT: Griswold's Anvil gets a "Salvage Item" option, and Cain gets "Identify All
++// Items" plus Horadric Knowledge progression, alongside their existing native options,
++// reusing the same mod-facing dialog-injection hook so they survive a Lua reload
++// (ClearTownerDialogOptions() resets the guard below, and RttEnsureNativeTownerDialogOptions()
++// is called again the next time any store opens).
+ void RttEnsureNativeTownerDialogOptions()
+ {
+ 	if (RttNativeTownerOptionsRegistered)
+@@ -163,6 +245,16 @@
+ 			    invflag = true;
+ 		    NewCursor(CURSOR_OIL);
+ 	    });
++
++	RegisterTownerDialogOption(
++	    "cain",
++	    [] { return std::string(_("Identify All Items")); },
++	    [] { RttIdentifyAllItems(); });
++
++	RegisterTownerDialogOption(
++	    "cain",
++	    RttHoradricKnowledgeOptionLabel,
++	    RttPurchaseHoradricKnowledge);
+ }
+ 
+ namespace {
