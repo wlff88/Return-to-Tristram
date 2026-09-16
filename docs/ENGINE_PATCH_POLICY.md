@@ -181,3 +181,29 @@ Properties:
 
 - presentation/build-only; a one-line header annotation, no runtime behavior change;
 - fixes a Windows-only link failure surfaced by patch 0014's own new test reading the symbol directly for the first time (Linux was unaffected since the macro is a no-op there).
+
+## Patch 0016 — Physical stash chest and crafting anchor in Tristram
+
+Purpose: place a clickable stash chest (reused `OBJ_CHEST1`, opens the same `RttOpenStash()` used by the Barmaid's "check the stash" dialogue) and a decorative crafting-station anchor prop (reused `OBJ_WEAPONRACK`) in Tristram, both via `RttEnsureTownServiceObjects()`.
+
+Properties:
+
+- no new save state — the stash's own contents already persist independently of how it's opened; the crafting anchor is purely decorative at this stage;
+- placement is idempotent the same way as patch 0014's waypoints (scans `ActiveObjects[]`/`Objects[]` for an already-tagged instance rather than re-checking position, since Tristram's `ViewPosition` anchor varies by entry direction);
+- tagged via `_oVar3` (confirmed free on both `OBJ_CHEST1` and `OBJ_WEAPONRACK` by reading `AddChest()`/`AddWeaponRack()`) to distinguish RTT-placed instances from any vanilla object sharing the same `_object_id`;
+- covered by `RttPhase4.EnsureTownServiceObjectsNoOpOffTown`; the actual in-world placement/click is not exercised headlessly (needs real rendering).
+
+## Patch 0017 — D2-style dual item tooltip
+
+Purpose: replace patch 0004's single-box delta-comparison tooltip with two fully independent, side-by-side floating boxes — the hovered item's own complete stat box, and (when the hovered item occupies an equipment slot) a second box showing the currently-equipped item's own complete stat box. The two are never merged into one box or one string.
+
+Properties:
+
+- presentation-only; no new save state, no gameplay/RNG effect;
+- adds a global `RttComparisonInfoString` beside the existing `InfoString`/`FloatingInfoString`, and a minimal redirect hook in `AddInfoBoxString` (`RttSetInfoBoxRedirect`) so the existing `PrintItemDetails`/`PrintItemInfo` pipeline can be re-run against the equipped item to populate the new buffer, instead of duplicating that pipeline;
+- reuses patch 0004's `GetRttComparisonItem()` slot-resolution logic (helm/shield/ring/amulet/weapon/armor → matching `InvBody` slot) to find the comparison target, but drops its delta-line-appending behavior entirely;
+- snapshots and restores `ShowUniqueItemInfoBox`/`curruitem` around the equipped-item pass, since `PrintItemDetails()` can set that shared unique-item-popup state and it must continue to reflect the actually-hovered item, not the comparison target;
+- wired into every existing hover call site (inventory, stash, visual store) plus a new one (ground items, via `GetItemStr`), which previously showed only a name with no stat box at all;
+- comparison box position is computed as an offset from the already-positioned primary box (to its right, flipped left if it would clip off-screen) rather than duplicating the primary box's whole per-context anchor switch;
+- not exercised by the headless test suite (needs real rendering); verified by manual source review of every call site plus a full clean re-application of all 17 patches from the pinned commit.
+- known gap, not addressed by this patch: no "Required Level" line exists anywhere in the tooltip, because no such field exists on `Item` in either vanilla or RTT code today — introducing one is a content/save-format decision, not a rendering one, and is left for a follow-up.

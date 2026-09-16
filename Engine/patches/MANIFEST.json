@@ -25,7 +25,7 @@
     },
     "0004-rtt-item-comparison-tooltip.patch": {
       "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
-      "purpose": "Append RTT comparison deltas to identified equipment tooltips.",
+      "purpose": "Superseded by 0017: originally appended delta-comparison lines into the single hovered-item tooltip; that behavior was removed by 0017 in favor of two independent D2-style boxes. Still contributes the base PrintItemDetails/GetRttComparisonItem scaffolding 0017 builds on.",
       "save_safe": true,
       "network_safe": true,
       "rng_safe": true
@@ -110,6 +110,13 @@
     "0016-rtt-town-service-objects.patch": {
       "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
       "purpose": "Physical stash chest (reused OBJ_CHEST1) and crafting-anchor prop (reused OBJ_WEAPONRACK) in Tristram.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
+    },
+    "0017-rtt-d2-style-item-tooltip.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "D2-style dual tooltip: hovering an item shows its own full stat box plus a second, fully independent box for the currently-equipped item in the same slot (never merged into one box). Wires this into inventory, stash, visual store and ground-item hover. Replaces patch 0004's single-box delta-comparison lines.",
       "save_safe": true,
       "network_safe": true,
       "rng_safe": true
