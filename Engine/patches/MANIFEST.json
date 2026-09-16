@@ -127,6 +127,13 @@
       "save_safe": true,
       "network_safe": true,
       "rng_safe": true
+    },
+    "0019-rtt-salvage-materials.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "Sell/Salvage split: 4 new material items (Iron Scrap, Arcane Dust, Blood Shard, Radiant Shard) reusing existing vanilla cursor graphics, plus a 'Salvage Item' option at Griswold that destroys an equipped-type item for tiered materials by rarity.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
     }
   }
 }
