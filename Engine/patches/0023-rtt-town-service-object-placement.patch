@@ -1,0 +1,78 @@
+diff --git a/Source/objects.cpp b/Source/objects.cpp
+--- a/Source/objects.cpp
++++ b/Source/objects.cpp
+@@ -4250,6 +4250,19 @@
+ 	return object._otype == OBJ_STORYBOOK && object._oVar3 == RttTownServiceSentinel;
+ }
+ 
++// Returns the given towner's fixed town tile, or `fallback` if that towner
++// isn't present this game (Towners is populated from InitTowners(), already
++// called earlier in the same town-load sequence RttEnsureTownServiceObjects()
++// runs in - see LoadGameLevelTown() in diablo.cpp).
++Point RttFindTownerPosition(_talker_id type, Point fallback)
++{
++	for (const Towner &towner : Towners) {
++		if (towner._ttype == type)
++			return towner.position;
++	}
++	return fallback;
++}
++
+ void RttPlaceTownServiceObject(Point anchor, _object_id type)
+ {
+ 	for (int i = 0; i < ActiveObjectCount; ++i) {
+@@ -4295,12 +4308,18 @@
+ {
+ 	if (currlevel != 0)
+ 		return;
+-	RttPlaceTownServiceObject(anchor, OBJ_CHEST1);
+-	RttPlaceTownServiceObject(anchor, OBJ_WEAPONRACK);
++	// Each object anchors near the NPC it belongs to, not near the player's
++	// entry point - `anchor` (the entry point) is only used as a fallback if
++	// a towner is somehow missing this game. Positions are the towners' own
++	// fixed town tiles (assets/txtdata/towners/towners.tsv): Ogden/Tavern for
++	// the stash, Griswold/Smith for the crafting anchor, Cain/Storyteller for
++	// the Horadric Cube.
++	RttPlaceTownServiceObject(RttFindTownerPosition(TOWN_TAVERN, anchor), OBJ_CHEST1);
++	RttPlaceTownServiceObject(RttFindTownerPosition(TOWN_SMITH, anchor), OBJ_WEAPONRACK);
+ 	// Reuses OBJ_STORYBOOK purely for its stationary "book on a stand" look; AddStoryBook()
+ 	// writes currlevel/seed-derived story-page data into _oVar1-_oVar4, all overwritten or
+ 	// unused once IsRttHoradricCube() bypasses OperateStoryBook() at interaction time.
+-	RttPlaceTownServiceObject(anchor, OBJ_STORYBOOK);
++	RttPlaceTownServiceObject(RttFindTownerPosition(TOWN_STORY, anchor), OBJ_STORYBOOK);
+ }
+ 
+ void RttOperateHoradricCube(Player &player)
+@@ -4670,11 +4689,11 @@
+ 	case OBJ_WARWEAP:
+ 	case OBJ_WEAPONRACK:
+ 		// The RTT crafting anchor reuses OBJ_WEAPONRACK but is purely a
+-		// visual/thematic marker -- it must never run the vanilla
+-		// free-weapon-spawn path. Crafting itself stays on the existing
+-		// hotkeys, working on a held item from anywhere.
++		// visual/thematic marker for Griswold's forge -- it must never run
++		// the vanilla free-weapon-spawn path. Actual crafting happens at the
++		// Horadric Cube near Cain.
+ 		if (sendmsg && IsRttCraftingAnchor(object))
+-			EventPlrMsg(_("Blacksmith's forge: use the crafting hotkeys (Reforge Rare / Raise Affix Tier / Reroll Affix Slot) on a held Rare item."), UiFlags::ColorWhite);
++			EventPlrMsg(_("Griswold's forge. Bring Rare items to the Horadric Cube near Cain to work them."), UiFlags::ColorWhite);
+ 		else
+ 			OperateWeaponRack(object, sendmsg, sendmsg);
+ 		break;
+diff --git a/Source/diablo.cpp b/Source/diablo.cpp
+--- a/Source/diablo.cpp
++++ b/Source/diablo.cpp
+@@ -3410,7 +3410,12 @@
+ 	// LoadGameLevelReturn() below reassigns ViewPosition for a return-warp
+ 	// entry): RttEnsureWaypointObject() needs one stable anchor per level,
+ 	// not one that shifts depending on how the player got here.
+-	const Point rttWaypointAnchor = ViewPosition;
++	// In town specifically, anchor near the Cathedral entrance (the town-side
++	// trigger tile InitTownTriggers() places at {25, 29}) rather than at the
++	// player's own entry point - a dungeon-entrance-adjacent waypoint reads
++	// more like a real landmark than one next to wherever the player happened
++	// to spawn.
++	const Point rttWaypointAnchor = leveltype == DTYPE_TOWN ? Point { 25, 29 } : ViewPosition;
+ 
+ 	IncProgress();
+ 

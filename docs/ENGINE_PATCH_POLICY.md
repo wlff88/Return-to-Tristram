@@ -274,3 +274,17 @@ Properties:
 - presentation/loading-only; no gameplay, save, or network behavior change;
 - caught by the user's first manual playtest of patch 0021 - the headless test suite cannot exercise this path (needs real rendering), which is exactly the gap the Runtime Acceptance manual-test docs exist to cover;
 - verified by a full clean re-application of all 22 patches from the pinned commit; the actual fix (does town load without crashing) still needs the user's manual confirmation.
+
+## Patch 0023 — Town service object placement + stale message fix
+
+Purpose: reposition the stash chest, crafting anchor, and Horadric Cube from a shared cluster near the player's town entry point (patches 0016/0021) to next to the NPC each conceptually belongs to, per user feedback after the first successful town load. Also repositions the waypoint circle in town (patch 0014) and fixes a crafting-anchor message left stale by patch 0021.
+
+Properties:
+
+- adds `RttFindTownerPosition(_talker_id, Point fallback)`, scanning the already-populated `Towners` vector (built by `InitTowners()`, called earlier in the same `LoadGameLevelTown()` sequence `RttEnsureTownServiceObjects()` runs in) for a towner's fixed town tile; falls back to the old entry-point anchor if that towner is somehow absent this game;
+- stash chest now anchors near `TOWN_TAVERN` (Ogden), crafting anchor near `TOWN_SMITH` (Griswold), Horadric Cube near `TOWN_STORY` (Cain) - all read from `assets/txtdata/towners/towners.tsv` at runtime, not hardcoded coordinates duplicated in the patch;
+- the waypoint circle's town anchor changes from the player's entry `ViewPosition` to a fixed `{25, 29}`, the same tile `InitTownTriggers()` already uses for the Cathedral entrance trigger - dungeon-level waypoints (floors 2/4/6/8/10/12/14/16) are unaffected, they still anchor on that level's own entry `ViewPosition`, since there's no equivalent fixed landmark there;
+- placement offsets (2+ tiles from the anchor, unchanged from patches 0014/0016) stay clear of `TrySelectTowner()`'s hit-test, which only checks a 1-tile radius around the exact hovered tile - confirmed by reading `cursor.cpp` before making this change, so the repositioned objects can't end up swallowed by a towner's own click handling;
+- also fixes the crafting anchor's on-click message, which still told the player to use the F5/F6/F7 crafting hotkeys - those don't exist (removed incidentally by patch 0013, confirmed dead code before patch 0019 even started this rework) and crafting is now Horadric-Cube-only per the user's own earlier decision; the message now points there instead;
+- presentation/placement-only; no gameplay, save, or network behavior change;
+- not covered by the headless test suite (needs real rendering to confirm placement visually); verified by a full clean re-application of all 23 patches from the pinned commit; the user's report that clicking the new objects showed no window/option at all could not be reproduced via static source review (dObject registration, selectionRegion, and OperateObject's dispatch all read correctly for every reused object type) - still open, see the user's next playtest.
