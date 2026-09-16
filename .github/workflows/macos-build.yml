@@ -1,0 +1,47 @@
+name: macOS ARM64 build (spike)
+
+# Exploratory only: nobody has confirmed the pinned DevilutionX baseline
+# actually builds on macOS in this fork. continue-on-error keeps this from
+# blocking merges while we find out what (if anything) breaks; do not
+# remove continue-on-error until a real failure list has been triaged.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/macos-build.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/macos-build.yml'
+
+concurrency:
+  group: macos-arm64-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    runs-on: macos-14
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Dependencies
+        run: |
+          brew install ninja cmake googletest sdl2 sdl2_image libsodium libpng bzip2
+      - name: Patch engine
+        run: python3 scripts/apply-engine-patches.py
+      - name: Build engine contracts
+        run: |
+          cmake -S Engine/devilutionx -B build/macos-phase4 -G Ninja -DBUILD_TESTING=ON -DDEVILUTIONX_SYSTEM_BENCHMARK=OFF
+          cmake --build build/macos-phase4 --target rtt_phase4_test -j 3
+      - name: Run engine contracts
+        working-directory: build/macos-phase4
+        run: ./rtt_phase4_test --gtest_output=xml:phase4-results.xml
+      - name: Validate completion evidence
+        run: python3 scripts/validate-phase4-complete.py --results build/macos-phase4/phase4-results.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase4-macos-evidence
+          path: build/macos-phase4/phase4-results.xml

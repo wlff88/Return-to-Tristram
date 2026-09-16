@@ -69,7 +69,8 @@
         "stat": "damagePercent",
         "min": 8,
         "max": 12
-      }
+      },
+      "category": "offensive"
     },
     {
       "stableId": "RTT_AFFIX_0003",
@@ -86,7 +87,8 @@
         "stat": "damagePercent",
         "min": 13,
         "max": 20
-      }
+      },
+      "category": "offensive"
     },
     {
       "stableId": "RTT_AFFIX_0004",
@@ -103,7 +105,8 @@
         "stat": "damagePercent",
         "min": 21,
         "max": 30
-      }
+      },
+      "category": "offensive"
     },
     {
       "stableId": "RTT_AFFIX_0005",
@@ -121,7 +124,8 @@
         "stat": "armorPercent",
         "min": 8,
         "max": 12
-      }
+      },
+      "category": "defensive"
     },
     {
       "stableId": "RTT_AFFIX_0006",
@@ -139,7 +143,8 @@
         "stat": "armorPercent",
         "min": 13,
         "max": 20
-      }
+      },
+      "category": "defensive"
     },
     {
       "stableId": "RTT_AFFIX_0007",
@@ -157,7 +162,8 @@
         "stat": "armorPercent",
         "min": 21,
         "max": 30
-      }
+      },
+      "category": "defensive"
     },
     {
       "stableId": "RTT_AFFIX_0008",
@@ -174,7 +180,8 @@
         "stat": "fireResist",
         "min": 6,
         "max": 10
-      }
+      },
+      "category": "elemental"
     },
     {
       "stableId": "RTT_AFFIX_0009",
@@ -191,7 +198,8 @@
         "stat": "fireResist",
         "min": 11,
         "max": 18
-      }
+      },
+      "category": "elemental"
     },
     {
       "stableId": "RTT_AFFIX_0010",
@@ -208,7 +216,8 @@
         "stat": "fireResist",
         "min": 19,
         "max": 28
-      }
+      },
+      "category": "elemental"
     },
     {
       "stableId": "RTT_AFFIX_0011",
@@ -225,7 +234,8 @@
         "stat": "lightningResist",
         "min": 6,
         "max": 10
-      }
+      },
+      "category": "elemental"
     },
     {
       "stableId": "RTT_AFFIX_0012",
@@ -242,7 +252,8 @@
         "stat": "lightningResist",
         "min": 11,
         "max": 18
-      }
+      },
+      "category": "elemental"
     },
     {
       "stableId": "RTT_AFFIX_0013",
@@ -259,7 +270,8 @@
         "stat": "lightningResist",
         "min": 19,
         "max": 28
-      }
+      },
+      "category": "elemental"
     },
     {
       "stableId": "RTT_AFFIX_0014",
@@ -276,7 +288,8 @@
         "stat": "vitality",
         "min": 1,
         "max": 3
-      }
+      },
+      "category": "resource"
     },
     {
       "stableId": "RTT_AFFIX_0015",
@@ -293,7 +306,8 @@
         "stat": "vitality",
         "min": 4,
         "max": 6
-      }
+      },
+      "category": "resource"
     },
     {
       "stableId": "RTT_AFFIX_0016",
@@ -310,7 +324,22 @@
         "stat": "vitality",
         "min": 7,
         "max": 9
-      }
+      },
+      "category": "resource"
     }
-  ]
+  ],
+  "taxonomy": {
+    "categories": [
+      "offensive",
+      "defensive",
+      "utility",
+      "resource",
+      "elemental",
+      "class",
+      "skill",
+      "endgame",
+      "corrupted"
+    ],
+    "policy": "every affix entry declares exactly one category; new families should extend this list only with user sign-off on the stat pool and tier curve, not invent values ad hoc"
+  }
 }

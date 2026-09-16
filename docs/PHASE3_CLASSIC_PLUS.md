@@ -31,6 +31,20 @@ Phase 3 does **not** append new generated affixes, rare systems or unique rows. 
 
 This means the Phase 3 checklist item formerly described as "balance-safe item additions" is satisfied as an engineering review: Classic+ keeps existing item-generation identity stable and defers generated content additions to Phase 4.
 
+## QoL priority list
+
+| Priority | Item | Status |
+| --- | --- | --- |
+| P0 | Weapon swap | done |
+| P0 | Shift-click belt | done (native DevilutionX behavior, reused) |
+| P0 | Configurable loot filter | done (Loot Filter 2.0) |
+| P0 | Advanced item tooltip | done |
+| P0 | Controller inventory improvements | done (controller-first source review) |
+| P1 | Larger gold stacks | not started — deliberately deferred; see "Item-content boundary" below (the 5000 gold-pile cap interacts with 16-bit serialization and Hellfire max-gold behavior, so this is a gameplay/compatibility change, not a cosmetic toggle) |
+| P1 | Auto gold pickup | done |
+| P1 | Quick stash transfer | done (native Ctrl-click, reused) |
+| P2 | Search stash | not started |
+
 ## Completion definition
 
 Phase 3 is **engineering complete** when all Classic+ source/data/patch validators and the Windows MSVC/package workflow are green on the merged tree.

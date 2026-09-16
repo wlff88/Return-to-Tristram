@@ -31,14 +31,14 @@ The complete RTT mask is `0xFFFFFFE0`; the upstream-reserved mask is `0x0000001F
 
 Compact affix code `0` means no affix. Codes `1..63` are append-only and never reused. The semantic stable ID remains authoritative; the compact code is only a serialization/network representation.
 
-Initial rarity codes:
+Rarity codes (matching `Data/itemization/affixes.json`'s `encoding.rarities` block, the shipped source of truth):
 
 - `0` — vanilla-compatible/generated item;
 - `1` — RTT Rare;
 - `2` — RTT Set;
-- `3` — reserved for a future migrated rarity layer.
+- `3` — RTT Unique.
 
-Vanilla Unique remains represented by DevilutionX's native unique machinery until the RTT unique bridge is enabled.
+The RTT unique bridge is implemented: three prototype uniques (Ashen Covenant, Boneward, Gravewhisper) carry rarity code `3` and round-trip through save/network via the same compact-metadata mechanism as Rares and Sets. Vanilla's own native unique machinery is unrelated and still used for non-RTT uniques (e.g. pre-Phase-4 saves, non-`rtt`-mod games); the two do not overlap.
 
 ## 3. No item morphing
 
@@ -57,14 +57,30 @@ This prevents installing a newer RTT build from turning an old saved magic item 
 
 ## 4. Tiered affixes
 
-`Data/itemization/affixes.json` is the canonical initial affix catalog. Phase 4 starts with 12 immutable entries across four families:
+`Data/itemization/affixes.json` is the canonical affix catalog, currently 15 entries across five families, each tagged with one `category` from the taxonomy declared in that file's own `taxonomy.categories` list (`offensive`, `defensive`, `utility`, `resource`, `elemental`, `class`, `skill`, `endgame`, `corrupted`):
 
-- Gravebound T1–T3 — weapon damage;
-- Stalwart T1–T3 — armor;
-- of Embers T1–T3 — fire resistance;
-- of Storms T1–T3 — lightning resistance.
+- Gravebound T1–T3 — weapon damage (`offensive`);
+- Stalwart T1–T3 — armor (`defensive`);
+- of Embers T1–T3 — fire resistance (`elemental`);
+- of Storms T1–T3 — lightning resistance (`elemental`);
+- Marrow T1–T3 — vitality (`resource`).
+
+Four categories (`utility`, `class`, `skill`, `endgame`) and one reserved for the Abyss/corruption endgame layer (`corrupted`) have no affixes yet — the taxonomy exists so they can be added later, but adding one is a stat-pool/balance decision (exact values, weights, tags), not something to invent unprompted.
 
 The engine slice may initially generate fewer than four affixes per item, but the serialized layout supports four slots from day one so future 2-prefix/2-suffix Rares do not require a destructive format change.
+
+### How to add a new affix family (cookbook)
+
+`Data/itemization/affixes.json` is the design source of truth, but it is **not** parsed by the engine at runtime — the compact-code effect logic in `Source/items.cpp` is a separate, hand-written implementation that must be kept in sync by hand. Adding a new family (new compact codes, e.g. 16–18) touches exactly these functions, all in `Source/items.cpp`:
+
+1. `IsRttPrefixCode()` / `IsRttSuffixCode()` — add the new code range to whichever the family is.
+2. `RttAffixMinItemLevel()` — extend the `code > 15` bound to the new max code.
+3. `IsRttAffixCompatible()` — extend the `code <= 15` bound, and add an item-type gate if the family shouldn't apply to all equipment (mirroring the existing `code <= 3 -> isWeapon()` / `code <= 6 -> isArmor()||isShield()||isHelm()` pattern).
+4. `ApplyRttAffix()` — add the new `if (code >= X && code <= Y) { item._iPLWhatever += RttRoll(...); }` block (may need a new `Item` field if no existing one fits, which is itself a save-format question — see `docs/ENGINE_PATCH_POLICY.md` rule 8).
+5. `RttAffixLine()` — add the matching tooltip-text branch.
+6. `BuildRttRareCodes()`'s `families` array — decide whether the new family enters the 4-slot random-family rotation (today exactly 4 families are eligible per item: weapon-damage-or-armor, Marrow, of Embers, of Storms) and, if so, which existing family it displaces or how the rotation itself needs to change to pick among more than 4 candidates.
+
+Every one of these is a small, mechanical change once the stat values and item-type rules are decided — the decision itself (what the affix does, its tier curve, which items it applies to) is the part that needs sign-off, not the wiring.
 
 ## 5. Uniques, sets and crafting
 
@@ -75,11 +91,13 @@ Canonical prototype content:
 - Gravewhisper — Boneweave Robe unique;
 - Ossuary Regalia — first set-framework definition.
 
-Crafting contracts are defined before mutation is enabled:
+Crafting contracts, all under the `blacksmith` system (`Data/crafting/recipes.json`'s `systems.values` also reserves `alchemy`, `runes` and `corruption` for later — empty today, since adding a recipe there means designing a new resource economy or mechanic, not wiring up an existing pattern):
 
-- Reforge Rare;
-- Raise Affix Tier;
-- Reroll Affix Slot.
+- Reforge Rare (blacksmith);
+- Raise Affix Tier (blacksmith);
+- Reroll Affix Slot (blacksmith).
+
+All three currently spend only inventory gold (`currencyModel: "inventory-gold"`). Alchemy/Runes/Corruption recipes would need that decided explicitly: new drop-based materials, or stay gold-gated to keep the "easy to understand, hard to optimize" philosophy.
 
 Crafting must reconstruct the item from its stable base and metadata before applying a new metadata word. It must never incrementally stack an effect on top of already-applied derived stats.
 
@@ -120,16 +138,16 @@ The vertical slice identity is bone/shadow/sustain/risk-reward. A dedicated clas
 
 ## 9. Phase 4 implementation sequence
 
-1. **Foundation:** stable catalogs, compact metadata layout, Save Schema v2/migration, runtime registry, CI.  
-2. **Rare engine:** fresh-vs-recreate split, deterministic local roll, Rare metadata encode/apply, Rare UI.  
-3. **Unique/set bridge:** stable RTT unique/set metadata and bonuses.  
-4. **Crafting engine:** metadata-safe mutations through deterministic reconstruction.  
-5. **Progression engine:** skill points, active upgrades, passive/notable/mastery state.  
-6. **Necromancer playable slice:** class activation, first three actives and passive/mastery effects.  
-7. **Regression:** save migration, item round-trip, multiplayer reconstruction and campaign build-archetype tests.
+1. **Foundation** — DONE: stable catalogs, compact metadata layout, Save Schema v2/migration, runtime registry, CI.
+2. **Rare engine** — DONE: fresh-vs-recreate split, deterministic local roll, Rare metadata encode/apply, Rare UI; extended across the full base-item catalogue (`RttPhase4.RareRoundTripAcrossAllEquipmentTypes`), currently 15 affixes across 5 families (Gravebound/Stalwart/of Embers/of Storms/Marrow).
+3. **Unique/set bridge** — DONE for the initial 3 uniques + 1 set (2-piece bonus only); both are narrow prototypes, not a finished content set — see `docs/PROJECT_STATUS.md` priority list for what's still open.
+4. **Crafting engine** — DONE for 3 recipes (Reforge Rare, Raise Affix Tier, Reroll Affix Slot); no sockets, base-upgrade or unique-limited-upgrade yet.
+5. **Progression engine** — DONE for the Necromancer's 5-skill catalog (unlock/spend gating, one specialization); no broader passive tree.
+6. **Necromancer playable slice** — DONE at the engineering level (class activation, 5 actives/passives/mastery wired); **real-machine campaign playthrough not yet performed**.
+7. **Regression** — DONE: save migration, item round-trip, multiplayer reconstruction (`RttPhase4.NetworkChoiceAppliesToSenderNotSelf` and the item-metadata host/client tests) are CI-green; campaign build-archetype tests remain manual (stage 6's real-machine gap).
 
 ## 10. Exit criterion
 
-Phase 4 engineering is complete when at least one Necromancer build can use RTT Rare/Unique/Set itemisation, skill progression and crafting through the original campaign path, and automated contracts prove that stable generated items and progression survive v1→v2 migration and repeated save/recreate cycles without identity drift.
+**Engineering criterion met**: automated contracts prove stable generated items and progression survive v1→v2 migration and repeated save/recreate cycles without identity drift (see `scripts/validate-phase4-complete.py`'s required `RttPhase4.*` test list).
 
-Real-machine gameplay acceptance may remain a separate gate, as with Phase 3, but CI/build/save/network contracts must be green before Phase 4 is called engineering-complete.
+**Runtime criterion not yet met**: nobody has played a Necromancer build using RTT Rare/Unique/Set itemisation, skill progression and crafting through the original campaign path on a real machine. Real-machine gameplay acceptance remains a separate gate, as with Phase 3.

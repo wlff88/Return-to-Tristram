@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import pathlib
 import subprocess
 import sys
@@ -10,6 +11,8 @@ import tempfile
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 ENGINE = ROOT / "Engine" / "devilutionx"
 PATCH_DIR = ROOT / "Engine" / "patches"
+MANIFEST_PATH = PATCH_DIR / "MANIFEST.json"
+MANIFEST_REQUIRED_FIELDS = {"upstream_commit", "purpose", "save_safe", "network_safe", "rng_safe"}
 
 # DevilutionX currently contains a mix of LF and CRLF source files. RTT patch
 # files are stored with LF, so context matching must tolerate EOL-only
@@ -140,10 +143,49 @@ def check_patch_series(patches: list[pathlib.Path]) -> int:
     return 0
 
 
+def check_manifest(patches: list[pathlib.Path]) -> int:
+    """Validate that every patch file has a complete MANIFEST.json entry and vice versa."""
+    if not MANIFEST_PATH.exists():
+        print(f"ERROR: {MANIFEST_PATH.relative_to(ROOT)} is missing", file=sys.stderr)
+        return 2
+
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    entries: dict[str, dict] = manifest.get("patches", {})
+
+    patch_names = {patch.name for patch in patches}
+    manifest_names = set(entries.keys())
+
+    missing = sorted(patch_names - manifest_names)
+    for name in missing:
+        print(f"ERROR: {name} has no MANIFEST.json entry", file=sys.stderr)
+
+    orphaned = sorted(manifest_names - patch_names)
+    for name in orphaned:
+        print(f"ERROR: MANIFEST.json references {name}, which does not exist in {PATCH_DIR.relative_to(ROOT)}", file=sys.stderr)
+
+    incomplete = False
+    for name, fields in entries.items():
+        missing_fields = MANIFEST_REQUIRED_FIELDS - fields.keys()
+        if missing_fields:
+            print(f"ERROR: {name}'s manifest entry is missing fields: {sorted(missing_fields)}", file=sys.stderr)
+            incomplete = True
+
+    if missing or orphaned or incomplete:
+        return 3
+
+    print(f"OK: MANIFEST.json has a complete entry for all {len(patches)} patches")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate or apply RTT patches to the pinned DevilutionX submodule")
     parser.add_argument("--check", action="store_true", help="Only verify that every patch applies or is already applied")
+    parser.add_argument("--check-manifest", action="store_true", help="Only verify MANIFEST.json documents every patch")
     args = parser.parse_args()
+
+    if args.check_manifest:
+        patches = sorted(PATCH_DIR.glob("*.patch"))
+        return check_manifest(patches)
 
     if not (ENGINE / "CMakeLists.txt").exists():
         print("ERROR: Engine/devilutionx is missing; initialize submodules first", file=sys.stderr)

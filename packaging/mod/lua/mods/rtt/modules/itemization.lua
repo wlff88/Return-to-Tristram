@@ -13,9 +13,12 @@ return {
     depends = { "rtt.core" },
     demonstrator = "Phase 4 stable-ID itemization catalog and compact affix metadata contract",
     probe = function()
+        -- affixByCode grows as new affix families are added (12 -> 15 when
+        -- Marrow/vitality landed); a lower bound catches truncation without
+        -- needing to bump this number on every future addition.
         return catalog.itemization.metadataVersion == 1
             and catalog.itemization.compactAffixMapVersion == 1
-            and countEntries(catalog.itemization.affixByCode) == 12
+            and countEntries(catalog.itemization.affixByCode) >= 15
     end,
     on_init = function(state)
         state.metadataVersion = catalog.itemization.metadataVersion

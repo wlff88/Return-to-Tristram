@@ -36,6 +36,9 @@ def main():
     assert {piece['identityCode'] for piece in pieces} == {61,62}
     assert {piece['identityCode']:piece['stableId'] for piece in pieces} == {piece['identityCode']:piece['stableId'] for piece in reversed(pieces)}
     assert max(a['compactCode'] for a in affixes['entries']) < 60
+    allowed_categories = set(affixes['taxonomy']['categories'])
+    for a in affixes['entries']:
+        assert a['category'] in allowed_categories, f"{a['stableId']} has unknown category {a['category']!r}"
     schema = json.loads((ROOT/'config/save-schema.json').read_text())
     assert schema['binaryProgressionProjection']['size'] == 20
     assert json.loads((ROOT/'config/network-policy.json').read_text())['protocolVersion'] == 2
