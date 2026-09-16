@@ -92,6 +92,27 @@
       "save_safe": true,
       "network_safe": true,
       "rng_safe": true
+    },
+    "0014-rtt-physical-waypoints.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "Physical clickable waypoint objects in town and every 2nd dungeon floor (reused OBJ_MCIRCLE1).",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
+    },
+    "0015-fix-active-object-count-export.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "Mark ActiveObjectCount DVL_API_FOR_TEST so Windows test builds link.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
+    },
+    "0016-rtt-town-service-objects.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "Physical stash chest (reused OBJ_CHEST1) and crafting-anchor prop (reused OBJ_WEAPONRACK) in Tristram.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
     }
   }
 }

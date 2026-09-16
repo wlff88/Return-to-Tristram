@@ -1,0 +1,238 @@
+diff --git a/test/rtt_phase4_test.cpp b/test/rtt_phase4_test.cpp
+--- a/test/rtt_phase4_test.cpp
++++ b/test/rtt_phase4_test.cpp
+@@ -322,5 +322,18 @@
+     EXPECT_EQ(ActiveObjectCount, activeBefore);
+     currlevel = savedLevel;
+ }
++TEST_F(RttPhase4, EnsureTownServiceObjectsNoOpOffTown)
++{
++    // RttEnsureTownServiceObjects() (the physical stash chest and crafting
++    // anchor) is town-only; it must short-circuit on any dungeon level
++    // without touching object state, for the same reason as the waypoint
++    // equivalent above -- dungeon levels 1-16 have no generated layout here.
++    const uint8_t savedLevel = currlevel;
++    const int activeBefore = ActiveObjectCount;
++    currlevel = 3;
++    RttEnsureTownServiceObjects({ 0, 0 });
++    EXPECT_EQ(ActiveObjectCount, activeBefore);
++    currlevel = savedLevel;
++}
+ } // namespace
+ } // namespace devilution
+diff --git a/Source/objects.h b/Source/objects.h
+--- a/Source/objects.h
++++ b/Source/objects.h
+@@ -365,6 +365,16 @@
+  * entry-direction-specific overrides).
+  */
+ void RttEnsureWaypointObject(Point anchor);
++/**
++ * @brief Places a physical stash chest (reused OBJ_CHEST1, opens the native
++ * stash exactly like the Barmaid's dialogue option) and a physical
++ * crafting-anchor prop (reused OBJ_WEAPONRACK; purely a visual/thematic
++ * marker near Griswold -- the F5/F6/F7 crafting hotkeys keep working on a
++ * held item from anywhere, unchanged) near the given anchor tile. Town only;
++ * safe to call on every level load like RttEnsureWaypointObject(), and a
++ * no-op outside town.
++ */
++void RttEnsureTownServiceObjects(Point anchor);
+ bool UpdateTrapState(Object &trap);
+ void OperateTrap(Object &trap);
+ void ProcessObjects();
+diff --git a/Source/stores.h b/Source/stores.h
+--- a/Source/stores.h
++++ b/Source/stores.h
+@@ -206,4 +206,11 @@
+  */
+ bool WitchWillBuy(const Item &item);
+ 
++/**
++ * @brief Opens the stash exactly as the Barmaid's "check the stash" dialogue
++ * option does (BarmaidEnter(), CurrentTextLine 14), factored out so a
++ * physical stash object can trigger the same behavior.
++ */
++void RttOpenStash();
++
+ } // namespace devilution
+diff --git a/Source/diablo.cpp b/Source/diablo.cpp
+--- a/Source/diablo.cpp
++++ b/Source/diablo.cpp
+@@ -3451,6 +3451,7 @@
+ 	}
+ 
+ 	RttEnsureWaypointObject(rttWaypointAnchor);
++	RttEnsureTownServiceObjects(rttWaypointAnchor);
+ 
+ 	PlayDungMsgs();
+ 
+diff --git a/Source/objects.cpp b/Source/objects.cpp
+--- a/Source/objects.cpp
++++ b/Source/objects.cpp
+@@ -40,6 +40,7 @@
+ #include "monster.h"
+ #include "options.h"
+ #include "panels/waypoint_panel.hpp"
++#include "plrmsg.h"
+ #include "qol/stash.h"
+ #include "stores.h"
+ #include "tables/objdat.h"
+@@ -3725,6 +3726,16 @@
+ 		const ObjectData &obj = AllObjects[OBJ_MCIRCLE1];
+ 		filesWidths[obj.ofindex] = obj.animWidth;
+ 	}
++	if (currlevel == 0) {
++		// OBJ_CHEST1 normally force-loads via the minlvl/maxlvl rule below
++		// (1-24), and OBJ_WEAPONRACK via its THEME_WEAPONRACK theme check --
++		// neither condition is ever true in town (currlevel 0, no themes),
++		// so the RTT stash chest/crafting anchor need this explicitly.
++		for (const auto id : { OBJ_CHEST1, OBJ_WEAPONRACK }) {
++			const ObjectData &obj = AllObjects[id];
++			filesWidths[obj.ofindex] = obj.animWidth;
++		}
++	}
+ 
+ 	for (size_t id = 0, n = AllObjects.size(); id < n; ++id) {
+ 		const ObjectData &objectData = AllObjects[id];
+@@ -4213,6 +4224,72 @@
+ 	}
+ }
+ 
++namespace {
++// _oVar3 is untouched by both AddChest() (uses _oVar1/_oVar2) and
++// AddWeaponRack() (uses only _oAnimFlag/selectionRegion/_oRndSeed), so it is
++// free for both object types; the two sentinels never need to differ since
++// _otype is checked alongside it.
++constexpr int RttTownServiceSentinel = 1;
++
++bool IsRttStashChest(const Object &object)
++{
++	return object._otype == OBJ_CHEST1 && object._oVar3 == RttTownServiceSentinel;
++}
++
++bool IsRttCraftingAnchor(const Object &object)
++{
++	return object._otype == OBJ_WEAPONRACK && object._oVar3 == RttTownServiceSentinel;
++}
++
++void RttPlaceTownServiceObject(Point anchor, _object_id type)
++{
++	for (int i = 0; i < ActiveObjectCount; ++i) {
++		const Object &existing = Objects[ActiveObjects[i]];
++		if (existing._otype == type && existing._oVar3 == RttTownServiceSentinel)
++			return;
++	}
++
++	// A wider offset set than the waypoint's own: by the time this runs the
++	// waypoint circle may already occupy the nearest tiles, and now two more
++	// objects are competing for space around the same anchor.
++	static constexpr std::array<Displacement, 12> Offsets {
++		Displacement { 2, 0 }, Displacement { 0, 2 }, Displacement { -2, 0 },
++		Displacement { 0, -2 }, Displacement { 1, 1 }, Displacement { -1, 1 },
++		Displacement { 1, -1 }, Displacement { -1, -1 }, Displacement { 3, 0 },
++		Displacement { 0, 3 }, Displacement { -3, 0 }, Displacement { 0, -3 }
++	};
++
++	for (const Displacement &offset : Offsets) {
++		const Point candidate = anchor + offset;
++		if (!InDungeonBounds(candidate))
++			continue;
++		if (IsTileSolid(candidate) || IsObjectAtPosition(candidate))
++			continue;
++		Object *object = AddObject(type, candidate);
++		if (object == nullptr)
++			return;
++		object->_oVar3 = RttTownServiceSentinel;
++		if (type == OBJ_WEAPONRACK) {
++			// AddWeaponRack() conditionally clears selectionRegion based on
++			// the dungeon theme-generation global `weaponFlag`, which is
++			// meaningless in town and left over from whichever dungeon
++			// level was last generated. Force this instance clickable
++			// regardless of that stale state.
++			object->selectionRegion = SelectionRegion::Bottom | SelectionRegion::Middle;
++		}
++		return;
++	}
++}
++} // namespace
++
++void RttEnsureTownServiceObjects(Point anchor)
++{
++	if (currlevel != 0)
++		return;
++	RttPlaceTownServiceObject(anchor, OBJ_CHEST1);
++	RttPlaceTownServiceObject(anchor, OBJ_WEAPONRACK);
++}
++
+ bool UpdateTrapState(Object &trap)
+ {
+ 	if (trap._oVar4 != 0)
+@@ -4486,7 +4563,13 @@
+ 	case OBJ_TCHEST1:
+ 	case OBJ_TCHEST2:
+ 	case OBJ_TCHEST3:
+-		OperateChest(player, object, sendmsg);
++		// The physical RTT stash chest reuses OBJ_CHEST1 but must never run
++		// the vanilla loot-spawning path -- it opens the same native stash
++		// the Barmaid's dialogue does.
++		if (sendmsg && IsRttStashChest(object))
++			RttOpenStash();
++		else
++			OperateChest(player, object, sendmsg);
+ 		break;
+ 	case OBJ_SARC:
+ 	case OBJ_L5SARC:
+@@ -4543,7 +4626,14 @@
+ 		break;
+ 	case OBJ_WARWEAP:
+ 	case OBJ_WEAPONRACK:
+-		OperateWeaponRack(object, sendmsg, sendmsg);
++		// The RTT crafting anchor reuses OBJ_WEAPONRACK but is purely a
++		// visual/thematic marker -- it must never run the vanilla
++		// free-weapon-spawn path. Crafting itself stays on the existing
++		// hotkeys, working on a held item from anywhere.
++		if (sendmsg && IsRttCraftingAnchor(object))
++			EventPlrMsg(_("Blacksmith's forge: use the crafting hotkeys (Reforge Rare / Raise Affix Tier / Reroll Affix Slot) on a held Rare item."), UiFlags::ColorWhite);
++		else
++			OperateWeaponRack(object, sendmsg, sendmsg);
+ 		break;
+ 	case OBJ_MUSHPATCH:
+ 		OperateMushroomPatch(player, object);
+diff --git a/Source/stores.cpp b/Source/stores.cpp
+--- a/Source/stores.cpp
++++ b/Source/stores.cpp
+@@ -2030,14 +2030,7 @@
+ 		break;
+ 	case 14:
+ 		ActiveStore = TalkID::None;
+-		IsStashOpen = true;
+-		Stash.RefreshItemStatFlags();
+-		invflag = true;
+-		if (ControlMode != ControlTypes::KeyboardAndMouse) {
+-			if (pcurs == CURSOR_DISARM)
+-				NewCursor(CURSOR_HAND);
+-			FocusOnInventory();
+-		}
++		RttOpenStash();
+ 		break;
+ 	case 18:
+ 		ActiveStore = TalkID::None;
+@@ -2100,6 +2093,18 @@
+ 
+ } // namespace
+ 
++void RttOpenStash()
++{
++	IsStashOpen = true;
++	Stash.RefreshItemStatFlags();
++	invflag = true;
++	if (ControlMode != ControlTypes::KeyboardAndMouse) {
++		if (pcurs == CURSOR_DISARM)
++			NewCursor(CURSOR_HAND);
++		FocusOnInventory();
++	}
++}
++
+ bool StoreAutoPlace(Item &item, bool persistItem)
+ {
+ 	Player &player = *MyPlayer;
