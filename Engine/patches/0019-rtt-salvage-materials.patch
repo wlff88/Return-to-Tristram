@@ -1,0 +1,257 @@
+diff --git a/Source/items.cpp b/Source/items.cpp
+--- a/Source/items.cpp
++++ b/Source/items.cpp
+@@ -2670,6 +2670,95 @@
+ 
+ } // namespace
+ 
++bool RttSalvageModeActive = false;
++
++enum class RttSalvageTier : uint8_t {
++	Normal,
++	Magic,
++	Rare,
++	UniqueOrSet,
++};
++
++RttSalvageTier RttGetSalvageTier(const Item &item)
++{
++	if (item._iMagical == ITEM_QUALITY_UNIQUE)
++		return RttSalvageTier::UniqueOrSet;
++	if (HasRttItemMetadata(item)) {
++		switch (GetRttItemRarity(item)) {
++		case RttItemRarity::Set:
++		case RttItemRarity::Unique:
++			return RttSalvageTier::UniqueOrSet;
++		case RttItemRarity::Rare:
++			return RttSalvageTier::Rare;
++		default:
++			break;
++		}
++	}
++	if (item._iMagical == ITEM_QUALITY_MAGIC)
++		return RttSalvageTier::Magic;
++	return RttSalvageTier::Normal;
++}
++
++namespace {
++
++void RttGrantMaterial(Player &player, _item_indexes idx, int count, std::string &grantedSummary)
++{
++	int granted = 0;
++	for (int i = 0; i < count; i++) {
++		Item material;
++		InitializeItem(material, idx);
++		material._iIdentified = true;
++		if (!AutoPlaceItemInInventory(player, material, true))
++			break;
++		granted++;
++	}
++	if (granted > 0) {
++		if (!grantedSummary.empty())
++			grantedSummary += ", ";
++		StrAppend(grantedSummary, "+", granted, " ", AllItemsList[static_cast<size_t>(idx)].iName);
++	}
++}
++
++} // namespace
++
++// RTT Salvage: destroys an identified or unidentified piece of equipment at the
++// Anvil (Griswold) in exchange for crafting materials, tiered by rarity per the
++// Item UX/Salvage/Crafting design (Normal->Iron Scrap, Magic->+Arcane Dust,
++// Rare->Arcane Dust+Blood Shard, Unique/Set->a rare material). Placeholder
++// quantities - balance to be tuned later, same as the Horadric Knowledge costs.
++void RttSalvageItem(Player &player, Item &item)
++{
++	if (&player != MyPlayer || item.isEmpty() || !item.isEquipment())
++		return;
++
++	std::string grantedSummary;
++	switch (RttGetSalvageTier(item)) {
++	case RttSalvageTier::Normal:
++		RttGrantMaterial(player, IDI_RTT_IRONSCRAP, 2, grantedSummary);
++		break;
++	case RttSalvageTier::Magic:
++		RttGrantMaterial(player, IDI_RTT_IRONSCRAP, 1, grantedSummary);
++		RttGrantMaterial(player, IDI_RTT_ARCANEDUST, 1, grantedSummary);
++		break;
++	case RttSalvageTier::Rare:
++		RttGrantMaterial(player, IDI_RTT_ARCANEDUST, 1, grantedSummary);
++		RttGrantMaterial(player, IDI_RTT_BLOODSHARD, 2, grantedSummary);
++		break;
++	case RttSalvageTier::UniqueOrSet:
++		RttGrantMaterial(player, IDI_RTT_RARESHARD, 1, grantedSummary);
++		break;
++	}
++
++	const std::string itemName = std::string(item.getName());
++	item.clear();
++	CalcPlrInv(player, true);
++
++	if (grantedSummary.empty())
++		EventPlrMsg(FormatRuntime(_("Salvaged {:s}, but your inventory is full - no materials fit."), itemName), UiFlags::ColorRed);
++	else
++		EventPlrMsg(FormatRuntime(_("Salvaged {:s}: {:s}."), itemName, grantedSummary), UiFlags::ColorWhitegold);
++}
++
+ bool IsItemAvailable(int i)
+ {
+ 	if (i < 0 || i >= static_cast<int>(AllItemsList.size()))
+diff --git a/Source/items.h b/Source/items.h
+--- a/Source/items.h
++++ b/Source/items.h
+@@ -532,6 +532,16 @@
+ bool RttReforgeHeldRare(Player &player);
+ bool RttRaiseHeldAffixTier(Player &player);
+ bool RttRerollHeldAffixSlot(Player &player);
++/**
++ * @brief True while the "Salvage Item" cursor mode (from Griswold's dialog) is active,
++ * reusing the CURSOR_OIL click-routing in diablo.cpp to disambiguate from real oil use.
++ */
++extern bool RttSalvageModeActive;
++/**
++ * @brief Destroys an equipped-type item in exchange for RTT crafting materials, tiered
++ * by rarity (Normal/Magic/Rare/Unique-or-Set). No-op for non-equipment (potions, gold, etc).
++ */
++void RttSalvageItem(Player &player, Item &item);
+ void SpawnItem(Monster &monster, Point position, bool sendmsg, bool spawn = false);
+ void CreateRndItem(Point position, bool onlygood, bool sendmsg, bool delta);
+ void CreateRndUseful(Point position, bool sendmsg);
+diff --git a/Source/control/control_infobox.cpp b/Source/control/control_infobox.cpp
+--- a/Source/control/control_infobox.cpp
++++ b/Source/control/control_infobox.cpp
+@@ -3,6 +3,7 @@
+ #include "controls/control_mode.hpp"
+ #include "engine/render/primitive_render.hpp"
+ #include "inv.h"
++#include "items.h"
+ #include "levels/trigs.h"
+ #include "options.h"
+ #include "panels/partypanel.hpp"
+@@ -392,6 +393,12 @@
+ 	FloatingInfoString = StringOrView {};
+ 	RttComparisonInfoString = StringOrView {};
+ 
++	// RTT: self-heal if the "Salvage Item" cursor mode was cancelled (right-click,
++	// Escape, opening another panel, etc.) through one of the many existing paths that
++	// reset pcurs back to CURSOR_HAND without going through our own click handler.
++	if (RttSalvageModeActive && pcurs != CURSOR_OIL)
++		RttSalvageModeActive = false;
++
+ 	const int totalButtons = IsChatAvailable() ? TotalMpMainPanelButtons : TotalSpMainPanelButtons;
+ 
+ 	for (int i = 0; i < totalButtons; i++) {
+diff --git a/assets/txtdata/items/itemdat.tsv b/assets/txtdata/items/itemdat.tsv
+--- a/assets/txtdata/items/itemdat.tsv
++++ b/assets/txtdata/items/itemdat.tsv
+@@ -167,3 +167,7 @@
+ 	1	Misc	Unequippable	RUNE_OF_STONE	Misc	NONE	Rune of Stone	Rune	7	0	0	0	0	0	0	25	0		RUNES	Null	true	300
+ 	0	Weapon	Two-handed	SHORT_STAFF	Staff	NONE	Short Staff of Charged Bolt		1	25	2	4	0	0	0	25	0		STAFF	ChargedBolt	false	470
+ IDI_ARENAPOT	0	Misc	Unequippable	ARENA_POTION	Misc	NONE	Arena Potion		7	0	0	0	0	0	0	0	0		ARENAPOT	Null	true	0
++IDI_RTT_IRONSCRAP	0	Misc	Unequippable	MAGIC_ROCK	Misc	NONE	Iron Scrap		0	0	0	0	0	0	0	0	0		NONE	Null	false	5
++IDI_RTT_ARCANEDUST	0	Misc	Unequippable	SPECTRAL_ELIXIR	Misc	NONE	Arcane Dust		0	0	0	0	0	0	0	0	0		NONE	Null	false	15
++IDI_RTT_BLOODSHARD	0	Misc	Unequippable	BLOOD_STONE	Misc	NONE	Blood Shard		0	0	0	0	0	0	0	0	0		NONE	Null	false	40
++IDI_RTT_RARESHARD	0	Misc	Unequippable	AURIC_AMULET	Misc	NONE	Radiant Shard		0	0	0	0	0	0	0	0	0		NONE	Null	false	150
+diff --git a/Source/stores.cpp b/Source/stores.cpp
+--- a/Source/stores.cpp
++++ b/Source/stores.cpp
+@@ -23,6 +23,7 @@
+ #include "engine/render/text_render.hpp"
+ #include "engine/trn.hpp"
+ #include "game_mode.hpp"
++#include "items.h"
+ #include "lua/lua_event.hpp"
+ #include "minitext.h"
+ #include "multi.h"
+@@ -76,6 +77,9 @@
+ 
+ std::vector<std::pair<std::string, std::vector<TownerDialogOption>>> ExtraTownerOptions;
+ 
++/** RTT: guards RttEnsureNativeTownerDialogOptions() against re-registering every store open. */
++bool RttNativeTownerOptionsRegistered = false;
++
+ const char *TownerNameForTalkID(TalkID s)
+ {
+ 	switch (s) {
+@@ -137,6 +141,28 @@
+ {
+ 	ExtraTownerOptions.clear();
+ 	std::fill(std::begin(CurrentExtraOptionIndices), std::end(CurrentExtraOptionIndices), std::nullopt);
++	RttNativeTownerOptionsRegistered = false;
++}
++
++// RTT: Griswold's Anvil gets a "Salvage Item" option alongside the existing native
++// options (Sell/Repair/Recharge/Oil), reusing the same mod-facing dialog-injection hook
++// so it survives a Lua reload (ClearTownerDialogOptions() resets the guard above,
++// and RttEnsureNativeTownerDialogOptions() is called again the next time any store opens).
++void RttEnsureNativeTownerDialogOptions()
++{
++	if (RttNativeTownerOptionsRegistered)
++		return;
++	RttNativeTownerOptionsRegistered = true;
++
++	RegisterTownerDialogOption(
++	    "griswold",
++	    [] { return std::string(_("Salvage Item")); },
++	    [] {
++		    RttSalvageModeActive = true;
++		    if (!invflag)
++			    invflag = true;
++		    NewCursor(CURSOR_OIL);
++	    });
+ }
+ 
+ namespace {
+@@ -2305,6 +2331,8 @@
+ 	ClearSText(0, NumStoreLines);
+ 	ReleaseStoreBtn();
+ 
++	RttEnsureNativeTownerDialogOptions();
++
+ 	// Fire StoreOpened Lua event for main store entries
+ 	if (const char *name = TownerNameForTalkID(s); name != nullptr)
+ 		lua::StoreOpened(name);
+diff --git a/Source/diablo.cpp b/Source/diablo.cpp
+--- a/Source/diablo.cpp
++++ b/Source/diablo.cpp
+@@ -2941,6 +2941,22 @@
+ 		return true;
+ 	}
+ 
++	if (pcurs == CURSOR_OIL && RttSalvageModeActive) {
++		// RTT: reuses the CURSOR_OIL click-routing for "Salvage Item" (Griswold), since
++		// real oil application and RTT salvage are mutually exclusive modes - only one
++		// can be entered at a time via NewCursor(CURSOR_OIL).
++		if (pcursinvitem != -1 && !IsInspectingPlayer()) {
++			Item &item = (pcursinvitem >= NUM_INVLOC) ? myPlayer.InvList[pcursinvitem - NUM_INVLOC] : myPlayer.InvBody[pcursinvitem];
++			RttSalvageItem(myPlayer, item);
++		} else if (pcursstashitem != StashStruct::EmptyCell) {
++			RttSalvageItem(myPlayer, Stash.stashList[pcursstashitem]);
++			Stash.dirty = true;
++		}
++		RttSalvageModeActive = false;
++		NewCursor(CURSOR_HAND);
++		return true;
++	}
++
+ 	if (pcurs == CURSOR_OIL) {
+ 		bool changeCursor = true;
+ 		if (pcursinvitem != -1 && !IsInspectingPlayer())
+diff --git a/Source/tables/itemdat.h b/Source/tables/itemdat.h
+--- a/Source/tables/itemdat.h
++++ b/Source/tables/itemdat.h
+@@ -82,6 +82,14 @@
+ 	IDI_SORCERER_DIABLO,
+ 	IDI_ARENAPOT,
+ 
++	// RTT: Salvage crafting materials (Item UX/Salvage/Crafting rework). Reuse existing
++	// vanilla cursor graphics (no new art); appended at the end so existing indices are
++	// untouched for save compatibility.
++	IDI_RTT_IRONSCRAP,
++	IDI_RTT_ARCANEDUST,
++	IDI_RTT_BLOODSHARD,
++	IDI_RTT_RARESHARD,
++
+ 	IDI_NUM_DEFAULT_ITEMS,
+ 	IDI_NONE = -1,
+ };
