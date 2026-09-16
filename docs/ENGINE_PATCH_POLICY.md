@@ -262,3 +262,15 @@ Properties:
 - only 3 of the ~15 named recipes in the spec have a real backing implementation (`RttReforgeHeldRare`/`RttRerollHeldAffixSlot`/`RttRaiseHeldAffixTier`, patch 0010, Rare-tier only); costs (100/50/150 Gold) are read from that existing engine rather than re-specified here. The other ~10 (Enchant Normal Item, Preserve Affix, Awaken Unique, etc.) have no engine support yet and are out of scope for this patch;
 - not covered by the headless test suite (needs a running game); verified by manual source review and a full clean re-application of all 21 patches from the pinned commit.
 - known gap, intentional: recipes below Horadric Knowledge II (the spec's Level I: Enchant Normal Item/Reforge Magic Item/Reroll Affix Value) have no engine support, so the Cube has nothing to offer a Normal/Magic-tier item - only Rare items are actionable at all right now.
+
+## Patch 0022 — Fix: Horadric Cube crashed on entering town
+
+Purpose: fix an access violation crash on every town entry, caused by patch 0021.
+
+Properties:
+
+- root cause: `InitObjectGFX()` force-loads `OBJ_STORYBOOK`'s sprite only for Catacombs levels (`IsAnyOf(currlevel, 4, 8, 12)`) - normally correct, since vanilla only ever places story books there. Patch 0021 placed one in town (`currlevel == 0`) for the Horadric Cube without adding it to town's own force-load list (which already exists for exactly this reason - `OBJ_CHEST1`/`OBJ_WEAPONRACK` needed the same explicit force-load when patch 0016 added them). The result: `pObjCels` never got a sprite for `OBJ_STORYBOOK`, and the first attempt to draw the Cube read an empty/absent `ClxSpriteList`, crashing the whole process - not merely a rendering glitch;
+- fix: added `OBJ_STORYBOOK` to the same `currlevel == 0` list `OBJ_CHEST1`/`OBJ_WEAPONRACK` already use in `InitObjectGFX()`;
+- presentation/loading-only; no gameplay, save, or network behavior change;
+- caught by the user's first manual playtest of patch 0021 - the headless test suite cannot exercise this path (needs real rendering), which is exactly the gap the Runtime Acceptance manual-test docs exist to cover;
+- verified by a full clean re-application of all 22 patches from the pinned commit; the actual fix (does town load without crashing) still needs the user's manual confirmation.

@@ -148,6 +148,13 @@
       "save_safe": true,
       "network_safe": true,
       "rng_safe": true
+    },
+    "0022-rtt-fix-horadric-cube-gfx-load.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "Fix a crash (access violation) on entering town: patch 0021 placed a physical Horadric Cube reusing OBJ_STORYBOOK in town, but InitObjectGFX() only force-loads that sprite for Catacombs levels (4/8/12) - drawing it in town read an empty sprite list. Adds OBJ_STORYBOOK to the same currlevel==0 force-load list as OBJ_CHEST1/OBJ_WEAPONRACK.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
     }
   }
 }
