@@ -1,0 +1,247 @@
+diff --git a/Source/objects.h b/Source/objects.h
+--- a/Source/objects.h
++++ b/Source/objects.h
+@@ -367,14 +367,20 @@
+ void RttEnsureWaypointObject(Point anchor);
+ /**
+  * @brief Places a physical stash chest (reused OBJ_CHEST1, opens the native
+- * stash exactly like the Barmaid's dialogue option) and a physical
+- * crafting-anchor prop (reused OBJ_WEAPONRACK; purely a visual/thematic
+- * marker near Griswold -- the F5/F6/F7 crafting hotkeys keep working on a
+- * held item from anywhere, unchanged) near the given anchor tile. Town only;
+- * safe to call on every level load like RttEnsureWaypointObject(), and a
+- * no-op outside town.
++ * stash exactly like the Barmaid's dialogue option), a crafting-anchor prop
++ * (reused OBJ_WEAPONRACK, purely a visual/thematic marker near Griswold), and
++ * a physical Horadric Cube (reused OBJ_STORYBOOK, see RttOperateHoradricCube())
++ * near the given anchor tile. Town only; safe to call on every level load
++ * like RttEnsureWaypointObject(), and a no-op outside town.
+  */
+ void RttEnsureTownServiceObjects(Point anchor);
++/**
++ * @brief Handles a click on the physical Horadric Cube. Requires the player to be
++ * holding an RTT Rare-tier item on the cursor; grants no interaction otherwise.
++ * Currently only reports eligibility - the actual recipe-selection UI is not yet
++ * implemented (see the Item UX/Salvage/Crafting rework's Phase 4).
++ */
++void RttOperateHoradricCube(Player &player);
+ bool UpdateTrapState(Object &trap);
+ void OperateTrap(Object &trap);
+ void ProcessObjects();
+diff --git a/Source/objects.cpp b/Source/objects.cpp
+--- a/Source/objects.cpp
++++ b/Source/objects.cpp
+@@ -4241,6 +4241,11 @@
+ 	return object._otype == OBJ_WEAPONRACK && object._oVar3 == RttTownServiceSentinel;
+ }
+ 
++bool IsRttHoradricCube(const Object &object)
++{
++	return object._otype == OBJ_STORYBOOK && object._oVar3 == RttTownServiceSentinel;
++}
++
+ void RttPlaceTownServiceObject(Point anchor, _object_id type)
+ {
+ 	for (int i = 0; i < ActiveObjectCount; ++i) {
+@@ -4288,6 +4293,33 @@
+ 		return;
+ 	RttPlaceTownServiceObject(anchor, OBJ_CHEST1);
+ 	RttPlaceTownServiceObject(anchor, OBJ_WEAPONRACK);
++	// Reuses OBJ_STORYBOOK purely for its stationary "book on a stand" look; AddStoryBook()
++	// writes currlevel/seed-derived story-page data into _oVar1-_oVar4, all overwritten or
++	// unused once IsRttHoradricCube() bypasses OperateStoryBook() at interaction time.
++	RttPlaceTownServiceObject(anchor, OBJ_STORYBOOK);
++}
++
++void RttOperateHoradricCube(Player &player)
++{
++	if (&player != MyPlayer)
++		return;
++
++	if (player.HoldItem.isEmpty()) {
++		EventPlrMsg(_("Bring an item to the Horadric Cube to work it."), UiFlags::ColorWhite);
++		return;
++	}
++
++	if (player.RttHoradricKnowledgeTier < 2) {
++		EventPlrMsg(_("You lack the Horadric Knowledge to use the Cube. Learn it from Cain."), UiFlags::ColorRed);
++		return;
++	}
++
++	if (!RttIsRareTierItem(player.HoldItem)) {
++		EventPlrMsg(_("Only Rare items can be worked at the Horadric Cube."), UiFlags::ColorRed);
++		return;
++	}
++
++	StartStore(TalkID::RttHoradricCube);
+ }
+ 
+ bool UpdateTrapState(Object &trap)
+@@ -4616,6 +4648,13 @@
+ 		OperateFountains(player, object);
+ 		break;
+ 	case OBJ_STORYBOOK:
++		// The physical RTT Horadric Cube reuses OBJ_STORYBOOK purely for its stationary
++		// "book on a stand" appearance -- it must never run the vanilla story-page reveal.
++		if (sendmsg && IsRttHoradricCube(object))
++			RttOperateHoradricCube(player);
++		else if (sendmsg)
++			OperateStoryBook(object);
++		break;
+ 	case OBJ_L5BOOKS:
+ 		if (sendmsg)
+ 			OperateStoryBook(object);
+@@ -5061,6 +5100,9 @@
+ 	case OBJ_PEDESTAL:
+ 		return _("Pedestal of Blood");
+ 	case OBJ_STORYBOOK:
++		if (IsRttHoradricCube(*this))
++			return _("Horadric Cube");
++		return _(StoryBookName[_oVar3]);
+ 	case OBJ_L5BOOKS:
+ 		return _(StoryBookName[_oVar3]);
+ 	case OBJ_WEAPONRACK:
+diff --git a/Source/items.h b/Source/items.h
+--- a/Source/items.h
++++ b/Source/items.h
+@@ -542,6 +542,11 @@
+  * by rarity (Normal/Magic/Rare/Unique-or-Set). No-op for non-equipment (potions, gold, etc).
+  */
+ void RttSalvageItem(Player &player, Item &item);
++/**
++ * @brief True if item is an RTT Rare-tier item (the only tier RttReforgeHeldRare/
++ * RttRaiseHeldAffixTier/RttRerollHeldAffixSlot support).
++ */
++bool RttIsRareTierItem(const Item &item);
+ void SpawnItem(Monster &monster, Point position, bool sendmsg, bool spawn = false);
+ void CreateRndItem(Point position, bool onlygood, bool sendmsg, bool delta);
+ void CreateRndUseful(Point position, bool sendmsg);
+diff --git a/Source/items.cpp b/Source/items.cpp
+--- a/Source/items.cpp
++++ b/Source/items.cpp
+@@ -2672,6 +2672,14 @@
+ 
+ bool RttSalvageModeActive = false;
+ 
++// RTT: the existing RttPrepareCraft/RttCraftHeldRare mutation engine (patch 0010) only
++// supports Rare-tier items; the Horadric Cube (patch 0021) uses this to report
++// eligibility to the player before offering any recipe.
++bool RttIsRareTierItem(const Item &item)
++{
++	return HasRttItemMetadata(item) && GetRttItemRarity(item) == RttItemRarity::Rare;
++}
++
+ enum class RttSalvageTier : uint8_t {
+ 	Normal,
+ 	Magic,
+diff --git a/Source/stores.h b/Source/stores.h
+--- a/Source/stores.h
++++ b/Source/stores.h
+@@ -66,6 +66,7 @@
+ 	Tavern,
+ 	Drunk,
+ 	Barmaid,
++	RttHoradricCube,
+ };
+ 
+ /** Currently active store */
+diff --git a/Source/stores.cpp b/Source/stores.cpp
+--- a/Source/stores.cpp
++++ b/Source/stores.cpp
+@@ -2209,6 +2209,68 @@
+ 	ClxDraw(out, { x2, rect.position.y + 13 }, (*pSPentSpn2Cels)[PentSpn2Spin()]);
+ }
+ 
++struct RttHoradricRecipe {
++	const char *name;
++	int cost;
++	int requiredTier;
++	bool (*run)(Player &);
++};
++
++// Costs match the existing RttCraftHeldRare recipe-cost table exactly (recipes 2/3/4).
++// Only the 3 recipes Horadric Knowledge II/III actually unlock have a working engine
++// implementation (patch 0010); the other ~10 named recipes from the Item UX/Salvage/
++// Crafting spec (Enchant Normal Item, Preserve Affix, Awaken Unique, etc.) have none yet.
++constexpr std::array<RttHoradricRecipe, 3> RttHoradricRecipes { {
++	{ N_("Reforge Rare"), 100, 2, RttReforgeHeldRare },
++	{ N_("Reroll Affix Slot"), 50, 2, RttRerollHeldAffixSlot },
++	{ N_("Raise Affix Tier"), 150, 3, RttRaiseHeldAffixTier },
++} };
++
++void RttStartHoradricCube()
++{
++	IsTextFullSize = false;
++	HasScrollbar = false;
++	AddSText(0, 1, _("Horadric Cube"), UiFlags::ColorWhitegold | UiFlags::AlignCenter, false);
++	AddSText(0, 3, _("Bring a Rare item, then choose:"), UiFlags::ColorWhitegold | UiFlags::AlignCenter, false);
++	AddSLine(5);
++
++	const Player &myPlayer = *MyPlayer;
++	int line = 7;
++	for (const RttHoradricRecipe &recipe : RttHoradricRecipes) {
++		if (myPlayer.RttHoradricKnowledgeTier >= recipe.requiredTier) {
++			AddSText(0, line, FormatRuntime(_("{:s} ({:d} Gold)"), _(recipe.name), recipe.cost), UiFlags::ColorWhite | UiFlags::AlignCenter, true);
++		} else {
++			AddSText(0, line, FormatRuntime(_("Unknown Recipe (Requires Horadric Knowledge {:s})"), RttHoradricKnowledgeTierNames[recipe.requiredTier - 1]), UiFlags::ColorRed | UiFlags::AlignCenter, false);
++		}
++		line += 2;
++	}
++
++	AddSLine(line);
++	AddSText(0, line + 2, _("Leave"), UiFlags::ColorWhite | UiFlags::AlignCenter, true);
++}
++
++void RttHoradricCubeEnter()
++{
++	Player &myPlayer = *MyPlayer;
++
++	int line = 7;
++	for (const RttHoradricRecipe &recipe : RttHoradricRecipes) {
++		if (CurrentTextLine == line) {
++			if (myPlayer.RttHoradricKnowledgeTier >= recipe.requiredTier) {
++				if (recipe.run(myPlayer))
++					EventPlrMsg(FormatRuntime(_("The Horadric Cube reworks the item: {:s}."), _(recipe.name)), UiFlags::ColorWhitegold);
++				else
++					EventPlrMsg(_("The Horadric Cube rejects this item."), UiFlags::ColorRed);
++			}
++			ActiveStore = TalkID::None;
++			return;
++		}
++		line += 2;
++	}
++
++	ActiveStore = TalkID::None;
++}
++
+ } // namespace
+ 
+ void RttOpenStash()
+@@ -2510,6 +2572,9 @@
+ 	case TalkID::Barmaid:
+ 		StartBarmaid();
+ 		break;
++	case TalkID::RttHoradricCube:
++		RttStartHoradricCube();
++		break;
+ 	case TalkID::None:
+ 		break;
+ 	}
+@@ -2624,6 +2689,7 @@
+ 	case TalkID::Tavern:
+ 	case TalkID::Drunk:
+ 	case TalkID::Barmaid:
++	case TalkID::RttHoradricCube:
+ 		ActiveStore = TalkID::None;
+ 		break;
+ 	case TalkID::Gossip:
+@@ -2894,6 +2960,9 @@
+ 	case TalkID::Barmaid:
+ 		BarmaidEnter();
+ 		break;
++	case TalkID::RttHoradricCube:
++		RttHoradricCubeEnter();
++		break;
+ 	case TalkID::None:
+ 		break;
+ 	}
