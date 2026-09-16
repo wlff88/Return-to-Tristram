@@ -43,7 +43,7 @@ diff --git a/Source/objects.cpp b/Source/objects.cpp
  void RttPlaceTownServiceObject(Point anchor, _object_id type)
  {
  	for (int i = 0; i < ActiveObjectCount; ++i) {
-@@ -4288,6 +4293,37 @@
+@@ -4288,6 +4293,33 @@
  		return;
  	RttPlaceTownServiceObject(anchor, OBJ_CHEST1);
  	RttPlaceTownServiceObject(anchor, OBJ_WEAPONRACK);
@@ -73,15 +73,11 @@ diff --git a/Source/objects.cpp b/Source/objects.cpp
 +		return;
 +	}
 +
-+	// RttReforgeHeldRare()/RttRaiseHeldAffixTier()/RttRerollHeldAffixSlot() already implement
-+	// and validate (Rare tier, affordability) the 3 recipes Horadric Knowledge II/III unlock -
-+	// only the recipe-selection UI itself (Phase 4 of the Item UX/Salvage/Crafting rework)
-+	// remains to be built, so nothing is executed yet.
-+	EventPlrMsg(_("The Horadric Cube recognizes this item, but its recipe menu isn't built yet."), UiFlags::ColorWhitegold);
++	StartStore(TalkID::RttHoradricCube);
  }
  
  bool UpdateTrapState(Object &trap)
-@@ -4616,6 +4652,13 @@
+@@ -4616,6 +4648,13 @@
  		OperateFountains(player, object);
  		break;
  	case OBJ_STORYBOOK:
@@ -95,7 +91,7 @@ diff --git a/Source/objects.cpp b/Source/objects.cpp
  	case OBJ_L5BOOKS:
  		if (sendmsg)
  			OperateStoryBook(object);
-@@ -5061,6 +5104,9 @@
+@@ -5061,6 +5100,9 @@
  	case OBJ_PEDESTAL:
  		return _("Pedestal of Blood");
  	case OBJ_STORYBOOK:
@@ -138,3 +134,114 @@ diff --git a/Source/items.cpp b/Source/items.cpp
  enum class RttSalvageTier : uint8_t {
  	Normal,
  	Magic,
+diff --git a/Source/stores.h b/Source/stores.h
+--- a/Source/stores.h
++++ b/Source/stores.h
+@@ -66,6 +66,7 @@
+ 	Tavern,
+ 	Drunk,
+ 	Barmaid,
++	RttHoradricCube,
+ };
+ 
+ /** Currently active store */
+diff --git a/Source/stores.cpp b/Source/stores.cpp
+--- a/Source/stores.cpp
++++ b/Source/stores.cpp
+@@ -2209,6 +2209,68 @@
+ 	ClxDraw(out, { x2, rect.position.y + 13 }, (*pSPentSpn2Cels)[PentSpn2Spin()]);
+ }
+ 
++struct RttHoradricRecipe {
++	const char *name;
++	int cost;
++	int requiredTier;
++	bool (*run)(Player &);
++};
++
++// Costs match the existing RttCraftHeldRare recipe-cost table exactly (recipes 2/3/4).
++// Only the 3 recipes Horadric Knowledge II/III actually unlock have a working engine
++// implementation (patch 0010); the other ~10 named recipes from the Item UX/Salvage/
++// Crafting spec (Enchant Normal Item, Preserve Affix, Awaken Unique, etc.) have none yet.
++constexpr std::array<RttHoradricRecipe, 3> RttHoradricRecipes { {
++	{ N_("Reforge Rare"), 100, 2, RttReforgeHeldRare },
++	{ N_("Reroll Affix Slot"), 50, 2, RttRerollHeldAffixSlot },
++	{ N_("Raise Affix Tier"), 150, 3, RttRaiseHeldAffixTier },
++} };
++
++void RttStartHoradricCube()
++{
++	IsTextFullSize = false;
++	HasScrollbar = false;
++	AddSText(0, 1, _("Horadric Cube"), UiFlags::ColorWhitegold | UiFlags::AlignCenter, false);
++	AddSText(0, 3, _("Bring a Rare item, then choose:"), UiFlags::ColorWhitegold | UiFlags::AlignCenter, false);
++	AddSLine(5);
++
++	const Player &myPlayer = *MyPlayer;
++	int line = 7;
++	for (const RttHoradricRecipe &recipe : RttHoradricRecipes) {
++		if (myPlayer.RttHoradricKnowledgeTier >= recipe.requiredTier) {
++			AddSText(0, line, FormatRuntime(_("{:s} ({:d} Gold)"), _(recipe.name), recipe.cost), UiFlags::ColorWhite | UiFlags::AlignCenter, true);
++		} else {
++			AddSText(0, line, FormatRuntime(_("Unknown Recipe (Requires Horadric Knowledge {:s})"), RttHoradricKnowledgeTierNames[recipe.requiredTier - 1]), UiFlags::ColorRed | UiFlags::AlignCenter, false);
++		}
++		line += 2;
++	}
++
++	AddSLine(line);
++	AddSText(0, line + 2, _("Leave"), UiFlags::ColorWhite | UiFlags::AlignCenter, true);
++}
++
++void RttHoradricCubeEnter()
++{
++	Player &myPlayer = *MyPlayer;
++
++	int line = 7;
++	for (const RttHoradricRecipe &recipe : RttHoradricRecipes) {
++		if (CurrentTextLine == line) {
++			if (myPlayer.RttHoradricKnowledgeTier >= recipe.requiredTier) {
++				if (recipe.run(myPlayer))
++					EventPlrMsg(FormatRuntime(_("The Horadric Cube reworks the item: {:s}."), _(recipe.name)), UiFlags::ColorWhitegold);
++				else
++					EventPlrMsg(_("The Horadric Cube rejects this item."), UiFlags::ColorRed);
++			}
++			ActiveStore = TalkID::None;
++			return;
++		}
++		line += 2;
++	}
++
++	ActiveStore = TalkID::None;
++}
++
+ } // namespace
+ 
+ void RttOpenStash()
+@@ -2510,6 +2572,9 @@
+ 	case TalkID::Barmaid:
+ 		StartBarmaid();
+ 		break;
++	case TalkID::RttHoradricCube:
++		RttStartHoradricCube();
++		break;
+ 	case TalkID::None:
+ 		break;
+ 	}
+@@ -2624,6 +2689,7 @@
+ 	case TalkID::Tavern:
+ 	case TalkID::Drunk:
+ 	case TalkID::Barmaid:
++	case TalkID::RttHoradricCube:
+ 		ActiveStore = TalkID::None;
+ 		break;
+ 	case TalkID::Gossip:
+@@ -2894,6 +2960,9 @@
+ 	case TalkID::Barmaid:
+ 		BarmaidEnter();
+ 		break;
++	case TalkID::RttHoradricCube:
++		RttHoradricCubeEnter();
++		break;
+ 	case TalkID::None:
+ 		break;
+ 	}
