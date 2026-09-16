@@ -248,3 +248,15 @@ Properties:
 - both new options use `RegisterTownerDialogOption("cain", ...)` - the same previously-unused hook patch 0019 gave its first caller for Griswold, now proven for a second towner;
 - not covered by the headless test suite (needs a running game to open Cain's dialog); verified by manual source review and a full clean re-application of all 20 patches from the pinned commit.
 - known gap, not addressed by this patch: the Horadric Cube itself, and any recipe actually gated by the purchased tier - `RttHoradricKnowledgeTier` is persisted and purchasable now, but nothing reads it yet. That's the next (and last) phase of the Item UX/Salvage/Crafting rework.
+
+## Patch 0021 — Horadric Cube: physical object (interaction UI not yet built)
+
+Purpose: place a physical Horadric Cube near Cain (reusing `RttEnsureTownServiceObjects`'s idempotent placement pattern) and report click-eligibility (held item present, RTT Rare tier, Horadric Knowledge II+) - a deliberately partial slice, not the full recipe-selection feature.
+
+Properties:
+
+- reuses `OBJ_STORYBOOK` purely for its stationary "book on a stand" appearance; `IsRttHoradricCube()` bypasses both `OperateStoryBook()` (so clicking it never reveals vanilla story text) and `Object::name()`'s `StoryBookName[_oVar3]` lookup (so hovering it shows "Horadric Cube", not a random vanilla book title) - the second override was a real gap the crafting anchor/stash chest didn't need, since `AddStoryBook()` writes seed-derived data into `_oVar3` that the tag write silently overwrites;
+- adds `RttIsRareTierItem()` (items.cpp/h) as a small public wrapper around the existing (internal-linkage) `GetRttItemRarity()`, since the Cube's eligibility check lives in `objects.cpp`, a different translation unit;
+- does **not** yet execute any recipe - `RttReforgeHeldRare()`/`RttRaiseHeldAffixTier()`/`RttRerollHeldAffixSlot()` (patch 0010) already implement and validate the 3 recipes Horadric Knowledge II/III unlock, but nothing calls them yet. Building the actual recipe-selection UI hit the same architectural wall as the Stash/Waypoint panels (~8-10 files to wire a new custom side-panel) or, alternatively, a new `TalkID` store-dialog page (smaller footprint, reuses the store system's existing wiring, but still a real addition) - which approach to take is an open question for the user before more code is written;
+- not covered by the headless test suite (needs a running game); verified by manual source review and a full clean re-application of all 21 patches from the pinned commit.
+- known gap, intentional: this patch alone does not let the player actually craft anything at the Cube - it only reports whether they could, once a recipe UI exists.

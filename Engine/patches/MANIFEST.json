@@ -141,6 +141,13 @@
       "save_safe": true,
       "network_safe": true,
       "rng_safe": true
+    },
+    "0021-rtt-horadric-cube-object.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "Physical Horadric Cube (reused OBJ_STORYBOOK) placed near Cain via RttEnsureTownServiceObjects. Reports eligibility (held item present, Rare tier, Horadric Knowledge II+) when clicked - the actual recipe-selection UI is not yet implemented.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
     }
   }
 }
