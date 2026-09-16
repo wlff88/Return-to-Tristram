@@ -1,0 +1,68 @@
+diff --git a/Source/lua/modules/dev/items.cpp b/Source/lua/modules/dev/items.cpp
+--- a/Source/lua/modules/dev/items.cpp
++++ b/Source/lua/modules/dev/items.cpp
+@@ -18,6 +18,7 @@
+ #include "lua/metadoc.hpp"
+ #include "pack.h"
+ #include "player.h"
++#include "qol/stash.h"
+ #include "utils/is_of.hpp"
+ #include "utils/str_case.hpp"
+ #include "utils/str_cat.hpp"
+@@ -198,6 +199,48 @@
+ 	return StrCat("Item generated successfully - iterations: ", i);
+ }
+ 
++// RTT: not real crafting materials (those don't exist yet, see Phase 2 of the
++// Item UX/Salvage/Crafting rework) - just reused generic items + gold dropped
++// straight into the stash, so the new physical stash chest has visible content
++// to manually test against instead of an empty stash.
++std::string RttDebugSeedStashTestData()
++{
++	constexpr int seedGold = 5000;
++	Stash.gold += seedGold;
++
++	struct Placeholder {
++		_item_indexes idx;
++		Point cell;
++	};
++	constexpr Placeholder placeholders[] = {
++		{ IDI_HEAL, { 0, 0 } },
++		{ IDI_MANA, { 1, 0 } },
++		{ IDI_PORTAL, { 2, 0 } },
++	};
++
++	int created = 0;
++	for (const auto &placeholder : placeholders) {
++		if (Stash.IsItemAtPosition(placeholder.cell))
++			continue;
++
++		Item item;
++		SetupAllItems(*MyPlayer, item, placeholder.idx, AdvanceRndSeed(), 1, 1, false, false);
++		SetupItem(item);
++		item._iIdentified = true;
++
++		Stash.stashList.emplace_back(item.pop());
++		const auto stashListIndex = static_cast<uint16_t>(Stash.stashList.size() - 1);
++		Stash.GetCurrentGrid()[placeholder.cell.x][placeholder.cell.y] = stashListIndex + 1;
++		created++;
++	}
++
++	Stash.dirty = true;
++	Stash.RefreshItemStatFlags();
++
++	return StrCat("Seeded stash with ", seedGold, " gold and ", created,
++	    " placeholder items (test-only stand-ins, not real crafting materials).");
++}
++
+ } // namespace
+ 
+ sol::table LuaDevItemsModule(sol::state_view &lua)
+@@ -207,6 +250,7 @@
+ 	LuaSetDocFn(table, "info", "()", "Show info of currently selected item.", &DebugCmdItemInfo);
+ 	LuaSetDocFn(table, "spawn", "(name: string)", "Attempt to generate an item.", &DebugSpawnItem);
+ 	LuaSetDocFn(table, "spawnUnique", "(name: string)", "Attempt to generate a unique item.", &DebugSpawnUniqueItem);
++	LuaSetDocFn(table, "seedStashTestData", "()", "RTT: seed the stash with test gold and placeholder items so the physical stash chest has content to manually test (debug-only, not real crafting materials).", &RttDebugSeedStashTestData);
+ 	return table;
+ }
+ 

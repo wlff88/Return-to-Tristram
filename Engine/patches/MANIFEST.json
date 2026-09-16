@@ -120,6 +120,13 @@
       "save_safe": true,
       "network_safe": true,
       "rng_safe": true
+    },
+    "0018-rtt-debug-seed-stash-test-data.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "_DEBUG-only Lua dev command (dev.seedStashTestData()) that drops test gold and a few reused generic items into the stash, so the physical stash chest from patch 0016 has content to manually test. Not real crafting materials - those don't exist yet.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
     }
   }
 }

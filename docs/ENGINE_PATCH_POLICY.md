@@ -207,3 +207,14 @@ Properties:
 - comparison box position is computed as an offset from the already-positioned primary box (to its right, flipped left if it would clip off-screen) rather than duplicating the primary box's whole per-context anchor switch;
 - not exercised by the headless test suite (needs real rendering); verified by manual source review of every call site plus a full clean re-application of all 17 patches from the pinned commit.
 - known gap, not addressed by this patch: no "Required Level" line exists anywhere in the tooltip, because no such field exists on `Item` in either vanilla or RTT code today — introducing one is a content/save-format decision, not a rendering one, and is left for a follow-up.
+
+## Patch 0018 — Debug: seed stash test data
+
+Purpose: add a `_DEBUG`-only Lua dev console command, `dev.seedStashTestData()`, that drops 5000 gold and three reused generic items (Full Healing/Mana Potion, Scroll of Town Portal) into the stash at fixed grid cells, so the physical stash chest added by patch 0016 has visible content to manually test instead of an empty stash.
+
+Properties:
+
+- test-only tooling, compiled only in `_DEBUG` builds (same gate as every other file under `lua/modules/dev/`); no effect on Release builds or shipped gameplay;
+- the three seeded items are existing vanilla item types reused as stand-ins — they are explicitly NOT the real Iron Scrap/Arcane Dust/Blood Shard crafting materials from the planned Sell/Salvage rework (those don't exist as engine items yet and require their own `_item_indexes`/`AllItemsList` entries, per patch policy rule 3);
+- writes directly into `Stash.stashList`/`Stash.GetCurrentGrid()`/`Stash.gold`, mirroring the insertion pattern `qol/stash.cpp`'s own `CheckStashPaste` already uses;
+- not covered by the headless test suite (debug console command, needs a running game); to be deleted once real crafting materials exist and this ad hoc seed is no longer needed for testing.
