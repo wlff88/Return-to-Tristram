@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "notes": "save_safe/network_safe/rng_safe record that the patch was designed and reviewed to preserve compatibility in that dimension (versioned save additions, symmetric host/client state, deterministic seed-derived RNG) -- not that the dimension is untouched. See docs/ENGINE_PATCH_POLICY.md for the full narrative per patch.",
+  "patches": {
+    "0001-rtt-lua-item-label-filter-hook.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "Expose a ShouldShowItemLabel(Item*) -> bool event to Lua for loot-filter policy.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
+    },
+    "0002-rtt-monster-resistance-display.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "Show exact monster Magic/Fire/Lightning resistance/immunity without the vanilla kill-count gate.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
+    },
+    "0003-rtt-classic-plus-visual-store-default.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "Default RTT Classic+ options to the reviewed native QoL set (Visual Grid vendors, etc.).",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
+    },
+    "0004-rtt-item-comparison-tooltip.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "Append RTT comparison deltas to identified equipment tooltips.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
+    },
+    "0005-rtt-weapon-swap.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "Diablo-II-style second main/off-hand weapon set without changing PlayerPack.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
+    },
+    "0006-rtt-normal-xp-multiplier.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "+50% earned XP on Normal difficulty for RTT games only; Nightmare/Hell untouched.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
+    },
+    "0007-rtt-phase4-itemization.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "Phase 4 foundation: generateRttMetadata param, first Rare/Unique/Set generation and crafting hooks.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
+    },
+    "0008-rtt-necromancer-vertical-slice.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "Necromancer class identity overlay on Sorcerer (getClassName() only).",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
+    },
+    "0009-rtt-rare-serialization-hardening.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "Mix affix slot index into RttRoll() so different slots never coincidentally roll identical values.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
+    },
+    "0010-rtt-phase4-completion.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "RttNamedIdentity() plus the shared RttPrepareCraft/RttCraftHeldRare crafting-mutation engine.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
+    },
+    "0011-rtt-progression-hotkey.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "F4 hotkey wrapper (RttSpendNextProgressionPoint) around the existing RttChooseProgression().",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
+    },
+    "0012-rtt-waypoint-foundation.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "RttWarpToLevel() reusing vanilla _pLvlVisited[]; no new save state.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
+    },
+    "0013-rtt-waypoint-panel-ui.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "Full graphical D2-style waypoint panel (M hotkey in town), mirroring quest_log.cpp.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
+    }
+  }
+}
