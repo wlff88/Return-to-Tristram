@@ -1,0 +1,16 @@
+diff --git a/Source/objects.cpp b/Source/objects.cpp
+--- a/Source/objects.cpp
++++ b/Source/objects.cpp
+@@ -3731,7 +3731,11 @@
+ 		// (1-24), and OBJ_WEAPONRACK via its THEME_WEAPONRACK theme check --
+ 		// neither condition is ever true in town (currlevel 0, no themes),
+ 		// so the RTT stash chest/crafting anchor need this explicitly.
+-		for (const auto id : { OBJ_CHEST1, OBJ_WEAPONRACK }) {
++		// OBJ_STORYBOOK is normally only force-loaded for Catacombs (4/8/12,
++		// see above) -- the RTT Horadric Cube reuses it in town too, so it
++		// needs the same explicit force-load here or its sprite is never
++		// loaded and drawing it reads an empty sprite list (crash).
++		for (const auto id : { OBJ_CHEST1, OBJ_WEAPONRACK, OBJ_STORYBOOK }) {
+ 			const ObjectData &obj = AllObjects[id];
+ 			filesWidths[obj.ofindex] = obj.animWidth;
+ 		}
