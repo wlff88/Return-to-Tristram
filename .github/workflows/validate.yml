@@ -73,12 +73,13 @@ jobs:
 
       - name: Validate Classic+ starter gold
         run: |
-          # Temporarily 100000 (was 200) for Item UX/Salvage/Crafting manual
-          # testing - see docs/PROJECT_STATUS.md. Revert this check alongside
-          # Data/overrides/classes/*/starting_loadout.tsv once that's done.
-          grep -q $'^gold\t100000$' out/ci-mod/txtdata/classes/warrior/starting_loadout.tsv
-          grep -q $'^gold\t100000$' out/ci-mod/txtdata/classes/rogue/starting_loadout.tsv
-          grep -q $'^gold\t100000$' out/ci-mod/txtdata/classes/sorcerer/starting_loadout.tsv
+          # Temporarily 65535 (was 200; uint16_t max - see playerdat.hpp) for
+          # Item UX/Salvage/Crafting manual testing - see docs/PROJECT_STATUS.md.
+          # Revert this check alongside Data/overrides/classes/*/starting_loadout.tsv
+          # once that's done.
+          grep -q $'^gold\t65535$' out/ci-mod/txtdata/classes/warrior/starting_loadout.tsv
+          grep -q $'^gold\t65535$' out/ci-mod/txtdata/classes/rogue/starting_loadout.tsv
+          grep -q $'^gold\t65535$' out/ci-mod/txtdata/classes/sorcerer/starting_loadout.tsv
 
       - name: Validate generated framework contract
         run: |

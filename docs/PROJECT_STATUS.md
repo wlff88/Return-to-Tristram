@@ -38,7 +38,7 @@ The sparse TSV exporter still rejects new upstream rows. That remains intentiona
 - alternate weapon-set state saved in versioned `rtt_weapon_set` data without changing `PlayerPack`;
 - native stash, 12 spell hotkeys and Ctrl-click inventory/stash transfer reused;
 - auto-gold and belt refill enabled by the Classic+ profile;
-- Warrior/Rogue/Sorcerer starter gold override: **100,000 gold (temporary)** — raised from 200 on 2026-09-16 specifically to let a tester afford Horadric Knowledge purchases (5,000-400,000 gold per tier) without a debug build's console commands, which don't exist in Release builds (`_DEBUG`-gated). Revert to a real balance value (200, or whatever Phase 3's actual target is) once Item UX/Salvage/Crafting manual testing is done — see the new section below;
+- Warrior/Rogue/Sorcerer starter gold override: **65,535 gold (temporary)** — raised from 200 on 2026-09-16 specifically to let a tester afford Horadric Knowledge purchases (5,000-400,000 gold per tier) without a debug build's console commands, which don't exist in Release builds (`_DEBUG`-gated). 65,535 is the actual ceiling: the starting-loadout gold field is a `uint16_t` (`playerdat.hpp`), so a single starting stack cannot go higher — covers Horadric Knowledge tiers I-III (5,000/20,000/60,000); tiers IV-V (150,000/400,000) still need gold earned in-game. Revert to a real balance value (200, or whatever Phase 3's actual target is) once Item UX/Salvage/Crafting manual testing is done — see the new section below;
 - dedicated Phase 3 runtime checklist and JSON evidence collector.
 
 ## Phase 4 foundation and first engine slice implemented
@@ -86,13 +86,13 @@ A separate, later body of work from a standalone user design spec ("Return to Tr
 - Unique/Set materials should also drop from bosses per the spec (so destroying a Unique/Set item for its rare material is never required for progression) — this is a boss loot-table change, not done.
 - No "Required Level" tooltip line exists anywhere, because no such field exists on `Item` in vanilla or RTT code today — adding one is a content/save-format decision (a new persisted attribute), deliberately not invented unilaterally.
 - Patch 0024 (the click fix) has not been manually confirmed working yet — it was diagnosed and fixed via full source-chain tracing (click handler -> network command -> action dispatch -> `OperateObject()`), not by reproducing the failure interactively. Needs the user's next playtest to confirm.
-- Starting gold is temporarily 100,000 (see above) — not a real balance value, must be reverted once testing is done.
+- Starting gold is temporarily 65,535 (see above, the `uint16_t` ceiling for a single starting stack) — not a real balance value, must be reverted once testing is done. Testing Horadric Knowledge tiers IV-V needs gold earned in-game on top of the starting amount.
 - General: this whole rework has had exactly one round of real human playtesting so far (which caught the town-load crash fixed in patch 0022, the object placement fixed in 0023, and led directly to diagnosing 0024). None of patches 0017-0021, 0023, 0024 have been confirmed working end-to-end in a real game session yet.
 
 ### Next steps
 
 1. User to re-test with patch 0024 (physical objects should now actually respond to clicks) — confirm stash/crafting-anchor/Horadric-Cube menu all open correctly, and that the D2 tooltip, Salvage, and Cain's options all work as designed.
-2. Once confirmed, revert the 100,000 starting-gold testing override.
+2. Once confirmed, revert the 65,535 starting-gold testing override.
 3. Decide whether to extend the crafting engine to cover more of the spec's named recipes (Enchant Normal Item, Preserve Affix, Awaken Unique, etc.) — each needs new mutation logic, not just menu wiring.
 4. Boss loot-table change for Unique/Set salvage materials — separate, self-contained follow-up.
 5. Decide on the "Required Level" tooltip field — needs a save-format/content decision before implementation.

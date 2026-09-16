@@ -121,8 +121,8 @@ foreach ($relative in $RequiredModAssets) {
 }
 
 $WarriorLoadout = Join-Path $RuntimeRttModDir 'txtdata/classes/warrior/starting_loadout.tsv'
-if (-not (Select-String -Path $WarriorLoadout -Pattern '^gold\t100000$' -Quiet)) {
-    throw 'Active RTT Warrior starting_loadout.tsv does not contain gold=100000.'
+if (-not (Select-String -Path $WarriorLoadout -Pattern '^gold\t65535$' -Quiet)) {
+    throw 'Active RTT Warrior starting_loadout.tsv does not contain gold=65535.'
 }
 
 @"
@@ -178,17 +178,19 @@ URUCHOMIENIE
 WAZNE
 Aktywny mod RTT znajduje sie w .\saves\mods\return-to-tristram, poniewaz
 --save-dir .\saves ustawia ten katalog jako DevilutionX PrefPath.
-Nowa postac Warrior/Rogue/Sorcerer powinna zaczynac z 100000 gold
+Nowa postac Warrior/Rogue/Sorcerer powinna zaczynac z 65535 gold
 (tymczasowo podniesione z wanilijnych 200 na czas testow Item UX/
-Salvage/Crafting - trzeba miec zapas na Horadric Knowledge u Caina,
-5000-400000 gold za poziom).
+Salvage/Crafting - to maksimum, jakie pozwala jedna startowa "sztabka"
+zlota w formacie danych). Wystarcza na poziomy I-III Horadric Knowledge
+(5000/20000/60000). Poziomy IV-V (150000/400000) trzeba dofarmic w grze
+(sprzedaz lupu Griswoldowi/Adrii).
 
 UWAGA O ASSETACH
 Ta paczka zawiera dokladny loose asset tree z przypietego commita DevilutionX.
 Binarka i Lua/TSV/UI assets sa z tej samej rewizji.
 
 CO SPRAWDZIC W PHASE 1
-- Nowa postac zaczyna z 100000 gold (potwierdzenie, ze RTT naprawde sie zaladowal).
+- Nowa postac zaczyna z 65535 gold (potwierdzenie, ze RTT naprawde sie zaladowal).
 - Return to Tristram jest aktywny jako mod.
 - Nowa gra dochodzi do Tristram.
 - Da sie wejsc do Cathedral Level 1.
@@ -220,7 +222,7 @@ Pinned assets mode: $AssetsMode
 Pinned ASSETS_VERSION: $AssetsVersion
 assets/lua/inspect.lua SHA256: $InspectHash
 Active RTT mod path: saves/mods/return-to-tristram
-Active RTT Warrior starting gold verified: 100000 (temporary, Item UX/Salvage/Crafting testing)
+Active RTT Warrior starting gold verified: 65535 (temporary, Item UX/Salvage/Crafting testing)
 Proprietary Diablo game data included: NO
 "@
 $BuildInfo | Set-Content -Path (Join-Path $PackageDir 'BUILD_INFO.txt') -Encoding UTF8
