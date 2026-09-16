@@ -155,6 +155,13 @@
       "save_safe": true,
       "network_safe": true,
       "rng_safe": true
+    },
+    "0023-rtt-town-service-object-placement.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "Reposition the physical stash chest, crafting anchor, and Horadric Cube from a cluster near the player's town entry point to next to the NPC each belongs to (Ogden/Tavern, Griswold/Smith, Cain/Storyteller). Waypoint circle now anchors near the Cathedral entrance in town instead of the entry point. Also fixes a stale crafting-anchor message referencing removed hotkeys.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
     }
   }
 }
