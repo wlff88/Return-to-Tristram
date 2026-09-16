@@ -1,6 +1,6 @@
 # Return to Tristram — Project Status
 
-Last status update: 2026-09-15
+Last status update: 2026-09-16
 
 ## Overall state
 
@@ -38,7 +38,7 @@ The sparse TSV exporter still rejects new upstream rows. That remains intentiona
 - alternate weapon-set state saved in versioned `rtt_weapon_set` data without changing `PlayerPack`;
 - native stash, 12 spell hotkeys and Ctrl-click inventory/stash transfer reused;
 - auto-gold and belt refill enabled by the Classic+ profile;
-- Warrior/Rogue/Sorcerer starter gold override: 200 gold;
+- Warrior/Rogue/Sorcerer starter gold override: **100,000 gold (temporary)** — raised from 200 on 2026-09-16 specifically to let a tester afford Horadric Knowledge purchases (5,000-400,000 gold per tier) without a debug build's console commands, which don't exist in Release builds (`_DEBUG`-gated). Revert to a real balance value (200, or whatever Phase 3's actual target is) once Item UX/Salvage/Crafting manual testing is done — see the new section below;
 - dedicated Phase 3 runtime checklist and JSON evidence collector.
 
 ## Phase 4 foundation and first engine slice implemented
@@ -65,6 +65,38 @@ Phase 4 started with compatibility boundaries first, then landed a working engin
 **Not yet done:** nobody has manually played a Necromancer through the original campaign on a real Windows build using this itemisation/progression stack. That remains open before Phase 4's runtime exit criterion is met. (Multiplayer network broadcast of a progression choice now has a host/client contract test — `RttPhase4.NetworkChoiceAppliesToSenderNotSelf`, [PR #25](https://github.com/wlff88/Return-to-Tristram/pull/25).)
 
 See `docs/PHASE4_ITEMISATION_SKILLS_CLASSES.md` for the serialization and progression contract.
+
+## Item UX / Salvage / Crafting rework (2026-09-16)
+
+A separate, later body of work from a standalone user design spec ("Return to Tristram — Item UX, Salvage i Crafting"), not part of the Phase 0-5 roadmap above. Implemented as patches 0017-0024, all merged to `main`. Order followed: Tooltip -> Sell/Salvage -> Cain/Horadric Knowledge -> Horadric Cube, per the user's own explicit choice.
+
+### Current state
+
+- **D2-style dual tooltip** (patch 0017): hovering any item shows its own full stat box; if it occupies an equipped slot, a second independent box shows the currently-equipped item's stats beside it — never merged into one box. Wired into inventory, stash, visual store, and ground-item hover (previously name-only).
+- **Sell/Salvage split** (patch 0019): Sell unchanged (any vendor, gold). New "Salvage Item" option at Griswold destroys an equipped-type item for materials tiered by rarity (Normal/Magic/Rare/Unique-or-Set -> Iron Scrap/Arcane Dust/Blood Shard/Radiant Shard), reusing 4 new item indexes with existing vanilla graphics (Magic Rock/Spectral Elixir/Blood Stone/Auric Amulet).
+- **Cain: Identify All + Horadric Knowledge** (patch 0020): batched identify at one combined gold cost; 5-tier gold-gated crafting-knowledge progression (5,000/20,000/60,000/150,000/400,000 gold, purchasable only in order, tier V also requires character level 30) persisted in a new `rtt_crafting_state` save archive entry.
+- **Horadric Cube** (patch 0021): physical object near Cain; holding a Rare item and clicking it opens a real recipe menu (new `TalkID::RttHoradricCube` store-dialog page) listing the 3 recipes actually implemented (Reforge Rare, Reroll Affix Slot — tier II; Raise Affix Tier — tier III), locked tiers shown as "Unknown Recipe" rather than hidden.
+- **Physical object placement** (patch 0023): stash chest near Ogden/Tavern, crafting anchor near Griswold/Smith, Horadric Cube near Cain/Storyteller, waypoint circle (town) near the Cathedral entrance — all NPC positions read at runtime from `towners.tsv`, not hardcoded.
+- **Town object click fix** (patch 0024): `LeftMouseCmd()`'s town branch never checked `ObjectUnderCursor` at all (vanilla town never had operable objects, so nobody had reason to) — mouse clicks on any physical town object silently did nothing even though hovering correctly showed its name. Fixed; the gamepad/controller path was already correct.
+- **Debug stash seed** (patch 0018, `_DEBUG` builds only): `dev.seedStashTestData()` drops test gold + placeholder items into the stash for manual testing.
+
+### Known problems (not yet fixed)
+
+- Only 3 of the ~15 named recipes in the user's spec have real engine support (`RttReforgeHeldRare`/`RttRerollHeldAffixSlot`/`RttRaiseHeldAffixTier`, Rare tier only, from the earlier Phase 4 crafting engine). The Cube has nothing to offer a Normal/Magic-tier item, and Horadric Knowledge tier I (Enchant Normal Item/Reforge Magic Item/Reroll Affix Value) unlocks nothing usable yet.
+- Unique/Set materials should also drop from bosses per the spec (so destroying a Unique/Set item for its rare material is never required for progression) — this is a boss loot-table change, not done.
+- No "Required Level" tooltip line exists anywhere, because no such field exists on `Item` in vanilla or RTT code today — adding one is a content/save-format decision (a new persisted attribute), deliberately not invented unilaterally.
+- Patch 0024 (the click fix) has not been manually confirmed working yet — it was diagnosed and fixed via full source-chain tracing (click handler -> network command -> action dispatch -> `OperateObject()`), not by reproducing the failure interactively. Needs the user's next playtest to confirm.
+- Starting gold is temporarily 100,000 (see above) — not a real balance value, must be reverted once testing is done.
+- General: this whole rework has had exactly one round of real human playtesting so far (which caught the town-load crash fixed in patch 0022, the object placement fixed in 0023, and led directly to diagnosing 0024). None of patches 0017-0021, 0023, 0024 have been confirmed working end-to-end in a real game session yet.
+
+### Next steps
+
+1. User to re-test with patch 0024 (physical objects should now actually respond to clicks) — confirm stash/crafting-anchor/Horadric-Cube menu all open correctly, and that the D2 tooltip, Salvage, and Cain's options all work as designed.
+2. Once confirmed, revert the 100,000 starting-gold testing override.
+3. Decide whether to extend the crafting engine to cover more of the spec's named recipes (Enchant Normal Item, Preserve Affix, Awaken Unique, etc.) — each needs new mutation logic, not just menu wiring.
+4. Boss loot-table change for Unique/Set salvage materials — separate, self-contained follow-up.
+5. Decide on the "Required Level" tooltip field — needs a save-format/content decision before implementation.
+6. This rework's 8 patches (0017-0024) are still undocumented in this file's "Overall state" phase list above, since it's orthogonal to the Phase 0-5 roadmap — consider whether it should be folded into a numbered phase or tracked as its own permanent line item once it stabilizes.
 
 ## Runtime acceptance still required
 
