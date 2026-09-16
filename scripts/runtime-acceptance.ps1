@@ -115,8 +115,8 @@ Require-Path (Join-Path $RuntimeMod "lua/inspect.lua") "Active RTT pinned inspec
 Require-Path (Join-Path $RuntimeMod "lua/mods/rtt/init.lua") "Active RTT Lua bootstrap"
 $WarriorLoadout = Join-Path $RuntimeMod "txtdata/classes/warrior/starting_loadout.tsv"
 Require-Path $WarriorLoadout "Active RTT Warrior starting loadout"
-if (-not (Select-String -Path $WarriorLoadout -Pattern '^gold\t200$' -Quiet)) {
-    throw "Active RTT Warrior starting loadout does not contain gold=200."
+if (-not (Select-String -Path $WarriorLoadout -Pattern '^gold\t100000$' -Quiet)) {
+    throw "Active RTT Warrior starting loadout does not contain gold=100000."
 }
 
 # Use an isolated config so acceptance does not alter normal DevilutionX settings.
@@ -170,7 +170,7 @@ if ($NoLaunch) {
 $LaunchArgs = New-LaunchArguments -DataPath $DataDir -SavesPath $SaveDir -ConfigPath $ConfigDir
 
 Write-Step "Acceptance session 1"
-Write-Host "Create a fresh Warrior/Rogue/Sorcerer and confirm 200 starting gold. Then reach Tristram, enter Cathedral Level 1, kill at least one monster, verify loot-filter/resistance UI behavior, save, then exit DevilutionX."
+Write-Host "Create a fresh Warrior/Rogue/Sorcerer and confirm 100000 starting gold. Then reach Tristram, enter Cathedral Level 1, kill at least one monster, verify loot-filter/resistance UI behavior, save, then exit DevilutionX."
 $Process = Start-Process -FilePath $ExePath -ArgumentList $LaunchArgs -WorkingDirectory $ExeDir -PassThru -Wait
 $Result.firstSessionExitCode = $Process.ExitCode
 
@@ -180,7 +180,7 @@ $RttSaves = Get-ChildItem -Path $SaveDir -Recurse -File -ErrorAction SilentlyCon
 $Result.rttSaveDetected = @($RttSaves).Count -gt 0
 
 $Result.modVisibleAndLoaded = Read-Pass "Was Return to Tristram visible/enabled and loaded for the game?"
-$Result.starterGoldObserved = Read-Pass "Did a fresh Warrior/Rogue/Sorcerer start with exactly 200 gold?"
+$Result.starterGoldObserved = Read-Pass "Did a fresh Warrior/Rogue/Sorcerer start with exactly 100000 gold?"
 $Result.reachedTristram = Read-Pass "Did the new game reach Tristram normally?"
 $Result.reachedCathedralLevel1 = Read-Pass "Did you enter Cathedral Level 1?"
 $Result.combatAndRttHooks = Read-Pass "Did combat work and did the RTT loot-filter/resistance-display hooks behave correctly?"

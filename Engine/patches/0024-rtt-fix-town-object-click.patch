@@ -1,0 +1,76 @@
+diff --git a/Source/objects.h b/Source/objects.h
+--- a/Source/objects.h
++++ b/Source/objects.h
+@@ -375,10 +375,18 @@
+  */
+ void RttEnsureTownServiceObjects(Point anchor);
+ /**
++ * @brief True for the physical stash chest, crafting anchor, or Horadric Cube placed
++ * by RttEnsureTownServiceObjects(). Used to let the player operate these utility
++ * objects without first walking adjacent to them (see IsPlayerAdjacentToObject() in
++ * player.cpp) - they anchor near an NPC's own tile now, and requiring literal
++ * adjacency added a second, unnecessary way for these UI-triggering props to fail.
++ */
++bool IsRttTownServiceObject(const Object &object);
++/**
+  * @brief Handles a click on the physical Horadric Cube. Requires the player to be
+- * holding an RTT Rare-tier item on the cursor; grants no interaction otherwise.
+- * Currently only reports eligibility - the actual recipe-selection UI is not yet
+- * implemented (see the Item UX/Salvage/Crafting rework's Phase 4).
++ * holding an RTT Rare-tier item on the cursor and Horadric Knowledge tier II+;
++ * otherwise reports why nothing happens. Opens TalkID::RttHoradricCube listing the
++ * recipes Horadric Knowledge II/III unlock (see stores.cpp).
+  */
+ void RttOperateHoradricCube(Player &player);
+ bool UpdateTrapState(Object &trap);
+diff --git a/Source/objects.cpp b/Source/objects.cpp
+--- a/Source/objects.cpp
++++ b/Source/objects.cpp
+@@ -4304,6 +4304,11 @@
+ }
+ } // namespace
+ 
++bool IsRttTownServiceObject(const Object &object)
++{
++	return IsRttStashChest(object) || IsRttCraftingAnchor(object) || IsRttHoradricCube(object);
++}
++
+ void RttEnsureTownServiceObjects(Point anchor)
+ {
+ 	if (currlevel != 0)
+diff --git a/Source/player.cpp b/Source/player.cpp
+--- a/Source/player.cpp
++++ b/Source/player.cpp
+@@ -1061,6 +1061,13 @@
+ 
+ bool IsPlayerAdjacentToObject(Player &player, Object &object)
+ {
++	// RTT's physical stash chest/crafting anchor/Horadric Cube are UI-triggering props
++	// anchored near an NPC's own tile, not gameplay obstacles - requiring the player to
++	// path all the way there and land on a precise adjacent tile only added a second,
++	// independent way for these to silently fail to respond to a click.
++	if (IsRttTownServiceObject(object))
++		return true;
++
+ 	const int x = std::abs(player.position.tile.x - object.position.x);
+ 	int y = std::abs(player.position.tile.y - object.position.y);
+ 	if (y > 1 && object.position.y >= 1 && FindObjectAtPosition(object.position + Direction::NorthEast) == &object) {
+diff --git a/Source/diablo.cpp b/Source/diablo.cpp
+--- a/Source/diablo.cpp
++++ b/Source/diablo.cpp
+@@ -259,7 +259,14 @@
+ 			NetSendCmdLocParam1(true, invflag ? CMD_GOTOGETITEM : CMD_GOTOAGETITEM, cursPosition, pcursitem);
+ 		if (pcursmonst != -1)
+ 			NetSendCmdLocParam1(true, CMD_TALKXY, cursPosition, pcursmonst);
+-		if (pcursitem == -1 && pcursmonst == -1 && PlayerUnderCursor == nullptr) {
++		// RTT: town never had operable Objects before physical waypoints/stash/
++		// crafting anchor/Horadric Cube existed, so this branch never checked
++		// ObjectUnderCursor at all - clicking one just fell through to the walk
++		// case below instead of ever sending CMD_OPOBJXY. Mirrors the identical
++		// check the non-town branch already does further down.
++		if (ObjectUnderCursor != nullptr && !ObjectUnderCursor->IsDisabled())
++			NetSendCmdLoc(MyPlayerId, true, CMD_OPOBJXY, cursPosition);
++		if (pcursitem == -1 && pcursmonst == -1 && ObjectUnderCursor == nullptr && PlayerUnderCursor == nullptr) {
+ 			LastPlayerAction = PlayerActionType::Walk;
+ 			NetSendCmdLoc(MyPlayerId, true, CMD_WALKXY, cursPosition);
+ 		}

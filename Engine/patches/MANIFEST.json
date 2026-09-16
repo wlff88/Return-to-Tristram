@@ -162,6 +162,13 @@
       "save_safe": true,
       "network_safe": true,
       "rng_safe": true
+    },
+    "0024-rtt-fix-town-object-click.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "Fix: mouse-clicking any physical town object (waypoint circle, stash chest, crafting anchor, Horadric Cube) did nothing. LeftMouseCmd()'s town branch never checked ObjectUnderCursor at all (vanilla town never had operable Objects, so nobody had reason to), silently falling through to a walk command instead of sending CMD_OPOBJXY. Also lets the 3 RTT service objects skip the walk-adjacency requirement, since they're UI-triggering props, not gameplay obstacles.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
     }
   }
 }
