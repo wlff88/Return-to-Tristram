@@ -1,0 +1,237 @@
+diff --git a/Source/items.cpp b/Source/items.cpp
+--- a/Source/items.cpp
++++ b/Source/items.cpp
+@@ -4006,9 +4006,85 @@
+ 	gbIsHellfire = tmpIsHellfire;
+ }
+ 
++// Tier I recipes (5-7) work on Normal/Magic items (no RTT metadata yet) by re-running
++// the SAME deterministic SetupAllItems()/RecreateItem() pipeline every drop/load/network
++// item already goes through, just with a new seed derived from the target's own seed -
++// never a bespoke generator. Recipe 7 (Reroll Affix Value) additionally rejects any
++// candidate whose affix *type* (_iPrePower/_iSufPower) differs from the original, so only
++// the rolled value changes - bounded rejection sampling, not a new mutation primitive.
++bool RttPrepareTierOneCraft(const Player &player, const Item &target, unsigned recipe, Item &result)
++{
++    if (HasRttItemMetadata(target)) return false; // Rare/Set/Unique use recipes 2/3/4/8 instead
++    if (recipe == 5 && target._iMagical != ITEM_QUALITY_NORMAL) return false;
++    if ((recipe == 6 || recipe == 7) && target._iMagical != ITEM_QUALITY_MAGIC) return false;
++
++    const int level = target._iCreateInfo & CF_LEVEL;
++    int uper = 0;
++    if ((target._iCreateInfo & CF_UPER1) != 0) uper = 1;
++    if ((target._iCreateInfo & CF_UPER15) != 0) uper = 15;
++    const bool pregen = (target._iCreateInfo & CF_PREGEN) != 0;
++
++    constexpr int MaxAttempts = 64;
++    for (int attempt = 1; attempt <= MaxAttempts; ++attempt) {
++        const uint32_t newSeed = RttMix(target._iSeed + target.dwBuff + static_cast<uint32_t>(attempt));
++        Item candidate {};
++        SetRndSeed(newSeed);
++        SetupAllItems(player, candidate, target.IDidx, newSeed, level, uper, /*onlygood=*/true, pregen, 0, /*forceNotUnique=*/true, false);
++        SetupItem(candidate);
++        if (candidate._iMagical != ITEM_QUALITY_MAGIC) continue;
++        if (recipe == 7 && (candidate._iPrePower != target._iPrePower || candidate._iSufPower != target._iSufPower)) continue;
++        if (candidate._iSeed == target._iSeed) continue; // must actually change something
++        candidate._iIdentified = target._iIdentified;
++        candidate._iDurability = target._iDurability;
++        candidate._iMaxDur = target._iMaxDur;
++        candidate._iCharges = target._iCharges;
++        candidate._iMaxCharges = target._iMaxCharges;
++        candidate.position = target.position;
++        result = candidate;
++        return true;
++    }
++    return false;
++}
++
++// Tier II "Preserve Affix": identical reforge to recipe 2 (Reforge Rare), except the
++// affix code in `selectedSlot` is held fixed instead of being re-rolled with the rest.
++bool RttPreparePreserveAffix(const Player &player, const Item &target, unsigned selectedSlot, Item &result)
++{
++    if (GetRttItemRarity(target) != RttItemRarity::Rare) return false;
++    const int level = target._iCreateInfo & CF_LEVEL;
++    std::array<uint8_t, 4> codes {};
++    for (size_t slot = 0; slot < codes.size(); ++slot) {
++        codes[slot] = GetRttAffixCode(target, slot);
++        if (!IsRttAffixCompatible(target, codes[slot], slot, level)) return false;
++    }
++    const uint8_t preserved = codes[selectedSlot];
++    if (preserved == 0) return false;
++
++    std::array<uint8_t, 4> reforged = BuildRttRareCodes(target, level, target.dwBuff);
++    reforged[selectedSlot] = preserved;
++    if (!IsRttAffixCompatible(target, preserved, selectedSlot, level)) return false;
++
++    Item metadata = target;
++    SetRttMetadata(metadata, RttItemRarity::Rare, reforged);
++    if (metadata.dwBuff == target.dwBuff) return false;
++    Item rebuilt {};
++    RecreateItem(player, rebuilt, target.IDidx, target._iCreateInfo, target._iSeed, target._ivalue, metadata.dwBuff);
++    rebuilt._iIdentified = target._iIdentified;
++    rebuilt._iDurability = target._iDurability;
++    rebuilt._iMaxDur = target._iMaxDur;
++    rebuilt._iCharges = target._iCharges;
++    rebuilt._iMaxCharges = target._iMaxCharges;
++    rebuilt.position = target.position;
++    result = rebuilt;
++    return true;
++}
++
+ bool RttPrepareCraft(const Player &player, const Item &target, unsigned recipe, unsigned selectedSlot, Item &result)
+ {
+-    if (!IsRttRuntime() || target.isEmpty() || !target.isEquipment() || !target._iIdentified || GetRttItemRarity(target) != RttItemRarity::Rare || recipe < 2 || recipe > 4 || selectedSlot >= 4) return false;
++    if (!IsRttRuntime() || target.isEmpty() || !target.isEquipment() || !target._iIdentified || recipe < 2 || recipe > 8 || selectedSlot >= 4) return false;
++    if (recipe >= 5 && recipe <= 7) return RttPrepareTierOneCraft(player, target, recipe, result);
++    if (recipe == 8) return RttPreparePreserveAffix(player, target, selectedSlot, result);
++    if (GetRttItemRarity(target) != RttItemRarity::Rare) return false;
+     const int level = target._iCreateInfo & CF_LEVEL;
+     std::array<uint8_t, 4> codes {};
+     for (size_t slot = 0; slot < codes.size(); ++slot) {
+@@ -4056,8 +4132,10 @@
+ {
+     // The owning peer commits inventory mutations, as with the engine's stores.
+     // Gold and the eventual placement/drop use existing inventory network messages.
+-    if (&player != MyPlayer || recipe < 2 || recipe > 4) return false;
+-    constexpr std::array<int, 3> Costs { 100, 150, 50 };
++    if (&player != MyPlayer || recipe < 2 || recipe > 8) return false;
++    // Index 0-2: recipes 2-4 (Tier II/III rare reforge). Index 3-5: recipes 5-7 (Tier I).
++    // Index 6: recipe 8 (Tier II Preserve Affix).
++    constexpr std::array<int, 7> Costs { 100, 150, 50, 60, 80, 120, 200 };
+     const int cost = Costs[recipe - 2];
+     if (CalculateGold(player) < cost) return false;
+     Item result {};
+@@ -4087,6 +4165,17 @@
+     }
+     return false;
+ }
++bool RttEnchantHeldNormalItem(Player &player) { return RttCraftHeldRare(player, 5, 0); }
++bool RttReforgeHeldMagicItem(Player &player) { return RttCraftHeldRare(player, 6, 0); }
++bool RttRerollHeldAffixValue(Player &player) { return RttCraftHeldRare(player, 7, 0); }
++bool RttPreserveHeldAffix(Player &player)
++{
++    for (unsigned slot = 0; slot < 4; ++slot) {
++        Item candidate {};
++        if (RttPrepareCraft(player, player.HoldItem, 8, slot, candidate)) return RttCraftHeldRare(player, 8, slot);
++    }
++    return false;
++}
+ 
+ void RecreateEar(Item &item, uint16_t ic, uint32_t iseed, uint8_t bCursval, std::string_view heroName)
+ {
+diff --git a/Source/items.h b/Source/items.h
+--- a/Source/items.h
++++ b/Source/items.h
+@@ -533,6 +533,19 @@
+ bool RttRaiseHeldAffixTier(Player &player);
+ bool RttRerollHeldAffixSlot(Player &player);
+ /**
++ * @brief Tier I recipes (5-7): reforge a Normal/Magic item via the same deterministic
++ * SetupAllItems()/RecreateItem() pipeline used for drops/save/network, just re-seeded.
++ * No RTT metadata is required on the source item (unlike recipes 2-4/8).
++ */
++bool RttEnchantHeldNormalItem(Player &player);
++bool RttReforgeHeldMagicItem(Player &player);
++bool RttRerollHeldAffixValue(Player &player);
++/**
++ * @brief Tier II recipe 8: like RttReforgeHeldRare, but keeps one affix slot fixed
++ * (the first slot with a valid, currently-held affix) while the rest re-roll.
++ */
++bool RttPreserveHeldAffix(Player &player);
++/**
+  * @brief True while the "Salvage Item" cursor mode (from Griswold's dialog) is active,
+  * reusing the CURSOR_OIL click-routing in diablo.cpp to disambiguate from real oil use.
+  */
+diff --git a/Source/stores.cpp b/Source/stores.cpp
+--- a/Source/stores.cpp
++++ b/Source/stores.cpp
+@@ -2216,13 +2216,19 @@
+ 	bool (*run)(Player &);
+ };
+ 
+-// Costs match the existing RttCraftHeldRare recipe-cost table exactly (recipes 2/3/4).
+-// Only the 3 recipes Horadric Knowledge II/III actually unlock have a working engine
+-// implementation (patch 0010); the other ~10 named recipes from the Item UX/Salvage/
+-// Crafting spec (Enchant Normal Item, Preserve Affix, Awaken Unique, etc.) have none yet.
+-constexpr std::array<RttHoradricRecipe, 3> RttHoradricRecipes { {
++// Costs match the existing RttCraftHeldRare recipe-cost table exactly (recipes 2-8).
++// Tier I (Horadric Knowledge I) works on plain Normal/Magic items with no RTT metadata;
++// Tier II/III work on RTT Rare items via the BuildRttRareCodes reforge engine.
++// Beyond these 7, the remaining named recipes from the Item UX/Salvage/Crafting spec
++// (Awaken Unique, etc.) intentionally have no engine implementation yet (Tier IV/V,
++// out of scope until Tier I-III are solid per the stabilization mandate).
++constexpr std::array<RttHoradricRecipe, 7> RttHoradricRecipes { {
++	{ N_("Enchant Normal Item"), 60, 1, RttEnchantHeldNormalItem },
++	{ N_("Reforge Magic Item"), 80, 1, RttReforgeHeldMagicItem },
++	{ N_("Reroll Affix Value"), 120, 1, RttRerollHeldAffixValue },
+ 	{ N_("Reforge Rare"), 100, 2, RttReforgeHeldRare },
+ 	{ N_("Reroll Affix Slot"), 50, 2, RttRerollHeldAffixSlot },
++	{ N_("Preserve Affix"), 200, 2, RttPreserveHeldAffix },
+ 	{ N_("Raise Affix Tier"), 150, 3, RttRaiseHeldAffixTier },
+ } };
+ 
+@@ -2231,7 +2237,7 @@
+ 	IsTextFullSize = false;
+ 	HasScrollbar = false;
+ 	AddSText(0, 1, _("Horadric Cube"), UiFlags::ColorWhitegold | UiFlags::AlignCenter, false);
+-	AddSText(0, 3, _("Bring a Rare item, then choose:"), UiFlags::ColorWhitegold | UiFlags::AlignCenter, false);
++	AddSText(0, 3, _("Bring an item, then choose:"), UiFlags::ColorWhitegold | UiFlags::AlignCenter, false);
+ 	AddSLine(5);
+ 
+ 	const Player &myPlayer = *MyPlayer;
+diff --git a/test/rtt_phase4_test.cpp b/test/rtt_phase4_test.cpp
+--- a/test/rtt_phase4_test.cpp
++++ b/test/rtt_phase4_test.cpp
+@@ -147,6 +147,52 @@
+     MyPlayer->HoldItem=a; MyPlayer->_pNumInv=0; EXPECT_FALSE(RttCraftHeldRare(*MyPlayer,2,0)); Same(a,MyPlayer->HoldItem);
+     auto low=Make(ItemType::Sword,1,{1,0,7,0},1); EXPECT_FALSE(RttPrepareCraft(*MyPlayer,low,3,0,result));
+ }
++TEST_F(RttPhase4, CraftTierOneAndPreserveAffix)
++{
++    // Tier I recipes (5-7) reuse the exact same SetupAllItems()/RecreateItem() pipeline
++    // as any other item generation - find seeds that produce a Normal and a Magic item
++    // (no RTT metadata) rather than hand-crafting one, so the test exercises the real
++    // generator instead of a shortcut.
++    Item normalItem {}, magicItem {};
++    bool haveNormal = false, haveMagic = false;
++    for (uint32_t seed = 1; seed < 5000 && !(haveNormal && haveMagic); ++seed) {
++        Item a {};
++        SetupAllItems(*MyPlayer, a, Base(ItemType::Sword), seed, 20, 1, false, false);
++        if (HasRttItemMetadata(a)) continue;
++        if (!haveNormal && a._iMagical == ITEM_QUALITY_NORMAL) { normalItem = a; haveNormal = true; }
++        if (!haveMagic && a._iMagical == ITEM_QUALITY_MAGIC) { magicItem = a; haveMagic = true; }
++    }
++    ASSERT_TRUE(haveNormal); ASSERT_TRUE(haveMagic);
++    normalItem._iIdentified = true; magicItem._iIdentified = true;
++
++    Item enchanted {};
++    ASSERT_TRUE(RttPrepareCraft(*MyPlayer, normalItem, 5, 0, enchanted));
++    EXPECT_EQ(enchanted.IDidx, normalItem.IDidx);
++    EXPECT_EQ(enchanted._iMagical, ITEM_QUALITY_MAGIC);
++    RoundTrip(enchanted);
++    EXPECT_FALSE(RttPrepareCraft(*MyPlayer, normalItem, 6, 0, enchanted)); // recipe 6 needs Magic source
++
++    Item reforged {};
++    ASSERT_TRUE(RttPrepareCraft(*MyPlayer, magicItem, 6, 0, reforged));
++    EXPECT_EQ(reforged._iMagical, ITEM_QUALITY_MAGIC);
++    EXPECT_NE(reforged._iSeed, magicItem._iSeed);
++    RoundTrip(reforged);
++
++    Item rerolled {};
++    if (RttPrepareCraft(*MyPlayer, magicItem, 7, 0, rerolled)) {
++        EXPECT_EQ(rerolled._iPrePower, magicItem._iPrePower);
++        EXPECT_EQ(rerolled._iSufPower, magicItem._iSufPower);
++        RoundTrip(rerolled);
++    }
++
++    // Preserve Affix (recipe 8): slot 0's code must survive while the rest reforge.
++    auto rare = Make(ItemType::Sword, 1, { 1, 13, 7, 10 });
++    Item preserved {};
++    ASSERT_TRUE(RttPrepareCraft(*MyPlayer, rare, 8, 0, preserved));
++    EXPECT_EQ(preserved.dwBuff & 0x7E0U, rare.dwBuff & 0x7E0U); // slot 0's 6 code bits unchanged
++    RoundTrip(preserved);
++    EXPECT_FALSE(RttPrepareCraft(*MyPlayer, normalItem, 8, 0, preserved)); // recipe 8 needs a Rare source
++}
+ TEST_F(RttPhase4, NecromancerCreateUnlockSaveChoices)
+ {
+     ASSERT_EQ(MyPlayer->rttProgression[2],2);
