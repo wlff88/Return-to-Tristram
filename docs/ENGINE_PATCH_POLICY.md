@@ -234,3 +234,17 @@ Properties:
 - fixed (non-random) material quantities per tier - a deliberate placeholder pending balance, same spirit as the Horadric Knowledge gold costs; if inventory is full mid-grant, the item is still consumed and a red warning message is shown rather than silently losing materials or duplicating the source item;
 - not covered by the headless test suite (needs a running game to click through the store dialog and cursor mode); verified by manual source review and a full clean re-application of all 19 patches from the pinned commit.
 - known gap, not addressed by this patch: "Unique/Set materials should also drop from bosses" (so destroying a Unique/Set item is never required for progression) is a boss loot-table change, left for a follow-up.
+
+## Patch 0020 — Cain: Identify All + Horadric Knowledge progression
+
+Purpose: reassign Cain toward Identify / Identify All / Crafting Knowledge only (no blacksmith association, unchanged from vanilla otherwise). Adds two new dialog options: "Identify All Items" (batched identify) and Horadric Knowledge tier purchase (the gold-sink crafting-progression system gating which recipes the eventual Horadric Cube will allow).
+
+Properties:
+
+- **save serialization** — requires explicit compatibility tests and documentation per rule 6, since it adds new persisted player state;
+- `RttIdentifyAllItems()` mirrors `StorytellerIdentifyItem()`'s existing single-item logic exactly, just batched over `InvBody` + `InvList`: sums each unidentified item's own `_iIvalue` identify cost, checks `PlayerCanAfford` once for the total, then identifies everything and takes the money - no partial-identify-then-run-out-of-gold state is possible;
+- Horadric Knowledge is 5 tiers with placeholder gold costs (5,000/20,000/60,000/150,000/400,000 - explicitly to be balanced later, matching the user's own spec), purchasable only in order (`RttHoradricKnowledgeTier + 1`); tier V additionally requires character level 30 (also a placeholder) since the spec's quest-completion gate is deferred until an actual quest system exists;
+- adds `Player::RttHoradricKnowledgeTier` (a plain `uint8_t` field, same style as `RttActiveWeaponSet`) and a new **separate, versioned RTT save archive entry** (`rtt_crafting_state`, version byte + tier byte) per patch policy rule 8, rather than touching `PlayerPack` or the reserved-zero bytes in `rtt_progression.h`'s `Progression` array (which are specifically scoped/documented as Necromancer-progression bytes) - loaded/saved at the same 3 call sites (`pfile_create_hero`, `pfile_write_hero`, `pfile_read_player_from_save`) as the existing `rtt_weapon_set` entry, guarded the same way (`GetActiveModSaveExtension() == "rtt"`, `!gbVanilla`);
+- both new options use `RegisterTownerDialogOption("cain", ...)` - the same previously-unused hook patch 0019 gave its first caller for Griswold, now proven for a second towner;
+- not covered by the headless test suite (needs a running game to open Cain's dialog); verified by manual source review and a full clean re-application of all 20 patches from the pinned commit.
+- known gap, not addressed by this patch: the Horadric Cube itself, and any recipe actually gated by the purchased tier - `RttHoradricKnowledgeTier` is persisted and purchasable now, but nothing reads it yet. That's the next (and last) phase of the Item UX/Salvage/Crafting rework.

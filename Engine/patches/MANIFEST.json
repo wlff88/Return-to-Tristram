@@ -134,6 +134,13 @@
       "save_safe": true,
       "network_safe": true,
       "rng_safe": true
+    },
+    "0020-rtt-cain-horadric-knowledge.patch": {
+      "upstream_commit": "ae73bd0d451aa69bfcc8b1b02c6d14fc742944f6",
+      "purpose": "Cain gets 'Identify All Items' (batched identify) and Horadric Knowledge progression (5 gold-gated crafting tiers, Level V additionally level-gated). Adds a new versioned rtt_crafting_state save archive entry for the purchased tier.",
+      "save_safe": true,
+      "network_safe": true,
+      "rng_safe": true
     }
   }
 }
